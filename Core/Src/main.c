@@ -25,6 +25,8 @@
 /* USER CODE BEGIN Includes */
 #include "BMX055.h"
 #include "MS5611.h"
+#include "Sensors.h"
+#include "LoRa.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,6 +97,18 @@ const osThreadAttr_t Sample_Sensors__attributes = {
 		.stack_size = sizeof(Sample_Sensors_Buffer),
 		.priority = (osPriority_t) osPriorityRealtime,
 };
+/* Definitions for LoRa_Task */
+osThreadId_t LoRa_TaskHandle;
+uint32_t LoRa_TaskBuffer[256];
+osStaticThreadDef_t LoRa_TaskControlBlock;
+const osThreadAttr_t LoRa_Task_attributes = {
+		.name = "LoRa_Task",
+		.cb_mem = &LoRa_TaskControlBlock,
+		.cb_size = sizeof(LoRa_TaskControlBlock),
+		.stack_mem = &LoRa_TaskBuffer[0],
+		.stack_size = sizeof(LoRa_TaskBuffer),
+		.priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -117,9 +131,13 @@ static void MX_CRC_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
 void Sample_Sensors(void *argument);
+void LoRa(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+BMX055_Handle bmx055;
+MS5611_Handle ms5611;
+BMX055_Data_Handle bmx055_data = { 0 };
+MS5611_Data_Handle ms5611_data = { 0 };
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -128,49 +146,41 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 // Give notification to Sample_Sensors_Handle so that scheduler enables the task
 //	vTaskNotifyGiveFromISR(Sample_Sensors_Handle, NULL);
 	switch (GPIO_Pin) {
-	case INT_1_ASM:
-		// TODO: Configure interrupts so that this int pin corresponds to accel or gyro
-				xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_ACCEL_OR_GYRO,
-								eSetBits, NULL);
+	case INT_1_ASM_Pin:
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_Accel,
+				eSetBits, NULL);
 		break;
-	case INT_2_ASM:
-		// TODO: Configure interrupts so that this int pin corresponds to accel or gyro
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_ACCEL_OR_GYRO,
-						eSetBits, NULL);
+	case INT_2_ASM_Pin:
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_Gyro,
+				eSetBits, NULL);
 		break;
-	case INT_1_ACCEL:
+	case INT_1_ACCEL_Pin:
 		/* Accelerometer interrupt */
 		// Log time of interrupt
-		bmx055_data.accel[4] = bmx055_data.accel[3];
-		bmx055_data.accel[3] = micros(Micros_Timer);
 		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_Accel,
 				eSetBits, NULL);
 		return;
-	case INT_1_GYRO:
+	case INT_1_GYRO_Pin:
 		/* Gyroscope interrupt */
 		// Log time of interrupt
-		bmx055_data.gyro[4] = bmx055_data.gyro[3];
-		bmx055_data.gyro[3] = micros(Micros_Timer);
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_gyro,
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_Gyro,
 				eSetBits, NULL);
 		return;
-	case DATA_READY_MAG:
+	case DATA_READY_MAG_Pin:
 		/* Magnetometer interrupt */
 		// Log time of interrupt
-		bmx055_data.mag[4] = bmx055_data.mag[3];
-		bmx055_data.mag[3] = micros(Micros_Timer);
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_mag,
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_Mag,
 				eSetBits, NULL);
 		return;
-	case GPS_PPS:
+	case GPS_PPS_Pin:
 		break;
-	case IO0_RF:
+	case IO0_RF_Pin:
 		/* LoRa interrupt */
 		xTaskNotifyFromISR(LoRaHandle, NULL, eNoAction, NULL);
 		break;
-	case IO1_RF:
+	case IO1_RF_Pin:
 		break;
-	case IO2_RF:
+	case IO2_RF_Pin:
 		break;
 	default:
 		return;
@@ -254,6 +264,9 @@ int main(void)
 
 	/* creation of Sample_Sensors_ */
 	Sample_Sensors_Handle = osThreadNew(Sample_Sensors, NULL, &Sample_Sensors__attributes);
+
+	/* creation of LoRa_Task */
+	LoRa_TaskHandle = osThreadNew(LoRa, NULL, &LoRa_Task_attributes);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -892,7 +905,7 @@ static void MX_GPIO_Init(void)
 	/*Configure GPIO pin : SD_Det_Pin */
 	GPIO_InitStruct.Pin = SD_Det_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Pull = GPIO_PULLDOWN;
 	HAL_GPIO_Init(SD_Det_GPIO_Port, &GPIO_InitStruct);
 
 	/*Configure GPIO pin : INDICATOR_Pin */
@@ -1043,9 +1056,9 @@ void Sample_Sensors(void *argument)
 		/* Check each sensor each loop for new data */
 #ifndef RUN_HITL
 		switch (sensor_type) {
-		case Accel_Sensor:
+		case BMX055_Accel:
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, Accel_Sensor);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel);
 			float accel_data[3];
 			BMX055_readAccel(&bmx055, accel_data);
 			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
@@ -1053,9 +1066,9 @@ void Sample_Sensors(void *argument)
 					ACCEL_ALPHA);
 			break;
 
-		case Gyro_Sensor:
+		case BMX055_Gyro:
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, Gyro_Sensor);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro);
 			float gyro_data[3];
 			BMX055_readGyro(&bmx055, gyro_data);
 			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
@@ -1063,16 +1076,16 @@ void Sample_Sensors(void *argument)
 					GYRO_ALPHA);
 			break;
 
-		case Mag_Sensor:
+		case BMX055_Mag:
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, Mag_Sensor);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			break;
 
-		case Accel_Sensor | Gyro_Sensor:
+		case BMX055_Accel | BMX055_Gyro:
 			// Clear bits corresponding to this case
 			ulTaskNotifyValueClear(Sample_Sensors_Handle,
-					Accel_Sensor | Gyro_Sensor);
+			BMX055_Accel | BMX055_Gyro);
 			BMX055_readAccel(&bmx055, accel_data);
 			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
 					sizeof(accel_data) / sizeof(int),
@@ -1084,10 +1097,10 @@ void Sample_Sensors(void *argument)
 
 			break;
 
-		case Accel_Sensor | Mag_Sensor:
+		case BMX055_Accel | BMX055_Mag:
 			// Clear bits corresponding to this case
 			ulTaskNotifyValueClear(Sample_Sensors_Handle,
-					Accel_Sensor | Mag_Sensor);
+			BMX055_Accel | BMX055_Mag);
 			BMX055_readAccel(&bmx055, accel_data);
 			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
 					sizeof(accel_data) / sizeof(int),
@@ -1095,29 +1108,21 @@ void Sample_Sensors(void *argument)
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			break;
 
-		case Gyro_Sensor | Mag_Sensor:
+		case BMX055_Gyro | BMX055_Mag:
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle,
-					Gyro_Sensor | Mag_Sensor);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro | BMX055_Accel);
 			BMX055_readGyro(&bmx055, gyro_data);
-			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
-					sizeof(gyro_data) / sizeof(int),
-					GYRO_ALPHA);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int), GYRO_ALPHA);
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			break;
 
-		case Accel_Sensor | Gyro_Sensor | Mag_Sensor:
+		case BMX055_Accel | BMX055_Gyro | BMX055_Mag:
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle,
-					Accel_Sensor | Gyro_Sensor | Mag_Sensor);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel | BMX055_Gyro | BMX055_Mag);
 			BMX055_readAccel(&bmx055, accel_data);
-			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
-					sizeof(accel_data) / sizeof(int),
-					ACCEL_ALPHA);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int), ACCEL_ALPHA);
 			BMX055_readGyro(&bmx055, gyro_data);
-			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
-					sizeof(gyro_data) / sizeof(int),
-					GYRO_ALPHA);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int), GYRO_ALPHA);
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			break;
 
@@ -1127,6 +1132,54 @@ void Sample_Sensors(void *argument)
 #endif
 	}
 	/* USER CODE END Sample_Sensors */
+}
+
+/* USER CODE BEGIN Header_LoRa */
+/**
+ * @brief Function implementing the LoRa_Task thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_LoRa */
+void LoRa(void *argument)
+{
+	/* USER CODE BEGIN LoRa */
+	LoRa_reset(&LoRa_Handle);
+	LoRa_setModulation(&LoRa_Handle, LORA_MODULATION);
+	if (LoRa_init(&LoRa_Handle) != LORA_OK) {
+//		debug_print("LoRa failed to connect\r\n",
+//				sizeof("LoRa failed to connect\r\n"), dbg = ERR);
+	}
+
+	LoRa_startReceiving(&LoRa_Handle);
+	/* Infinite loop */
+	for (;;)
+			{
+		// Wait for LoRa to be ready before running task
+		xTaskNotifyWait(0, 0, NULL, (TickType_t) portMAX_DELAY);
+	}
+	/* USER CODE END LoRa */
+}
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM1 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	/* USER CODE BEGIN Callback 0 */
+
+	/* USER CODE END Callback 0 */
+	if (htim->Instance == TIM1) {
+		HAL_IncTick();
+	}
+	/* USER CODE BEGIN Callback 1 */
+
+	/* USER CODE END Callback 1 */
 }
 
 /**

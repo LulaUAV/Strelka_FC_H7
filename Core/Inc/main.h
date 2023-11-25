@@ -123,7 +123,6 @@ void Error_Handler(void);
 #define BMX055_Mag 0b00100
 #define AMS330_Accel 0b01000
 #define AMS330_Gyro 0b10000
-#define
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
