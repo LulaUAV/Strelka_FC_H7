@@ -63,6 +63,7 @@ void Error_Handler(void);
 #define INDICATOR_GPIO_Port GPIOC
 #define GPS_PPS_Pin GPIO_PIN_0
 #define GPS_PPS_GPIO_Port GPIOA
+#define GPS_PPS_EXTI_IRQn EXTI0_IRQn
 #define GPS_RST_Pin GPIO_PIN_1
 #define GPS_RST_GPIO_Port GPIOA
 #define BATT_SENSE_Pin GPIO_PIN_4
@@ -75,6 +76,7 @@ void Error_Handler(void);
 #define RESET_RF_GPIO_Port GPIOB
 #define IO0_RF_Pin GPIO_PIN_12
 #define IO0_RF_GPIO_Port GPIOB
+#define IO0_RF_EXTI_IRQn EXTI15_10_IRQn
 #define SPI2_NSS1_Pin GPIO_PIN_8
 #define SPI2_NSS1_GPIO_Port GPIOD
 #define SPI2_NSS2_Pin GPIO_PIN_9
@@ -87,18 +89,25 @@ void Error_Handler(void);
 #define SPI2_NSS5_GPIO_Port GPIOD
 #define INT_1_ASM_Pin GPIO_PIN_13
 #define INT_1_ASM_GPIO_Port GPIOD
+#define INT_1_ASM_EXTI_IRQn EXTI15_10_IRQn
 #define INT_2_ASM_Pin GPIO_PIN_14
 #define INT_2_ASM_GPIO_Port GPIOD
+#define INT_2_ASM_EXTI_IRQn EXTI15_10_IRQn
 #define INT_1_ACCEL_Pin GPIO_PIN_15
 #define INT_1_ACCEL_GPIO_Port GPIOD
+#define INT_1_ACCEL_EXTI_IRQn EXTI15_10_IRQn
 #define INT_1_GYRO_Pin GPIO_PIN_6
 #define INT_1_GYRO_GPIO_Port GPIOC
+#define INT_1_GYRO_EXTI_IRQn EXTI9_5_IRQn
 #define DATA_READY_MAG_Pin GPIO_PIN_7
 #define DATA_READY_MAG_GPIO_Port GPIOC
+#define DATA_READY_MAG_EXTI_IRQn EXTI9_5_IRQn
 #define IO1_RF_Pin GPIO_PIN_3
 #define IO1_RF_GPIO_Port GPIOD
+#define IO1_RF_EXTI_IRQn EXTI3_IRQn
 #define IO2_RF_Pin GPIO_PIN_4
 #define IO2_RF_GPIO_Port GPIOD
+#define IO2_RF_EXTI_IRQn EXTI4_IRQn
 #define DROGUE_H_Pin GPIO_PIN_4
 #define DROGUE_H_GPIO_Port GPIOB
 #define DROGUE_L_Pin GPIO_PIN_5
@@ -109,7 +118,12 @@ void Error_Handler(void);
 #define MAIN_L_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+#define BMX055_Accel 0b00001
+#define BMX055_Gyro 0b00010
+#define BMX055_Mag 0b00100
+#define AMS330_Accel 0b01000
+#define AMS330_Gyro 0b10000
+#define
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

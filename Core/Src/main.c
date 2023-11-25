@@ -23,7 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "BMX055.h"
+#include "MS5611.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -82,6 +83,18 @@ const osThreadAttr_t State_Machine_T_attributes = {
 		.stack_size = sizeof(myTask02Buffer),
 		.priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for Sample_Sensors_ */
+osThreadId_t Sample_Sensors_Handle;
+uint32_t Sample_Sensors_Buffer[256];
+osStaticThreadDef_t Sample_Sensors_ControlBlock;
+const osThreadAttr_t Sample_Sensors__attributes = {
+		.name = "Sample_Sensors_",
+		.cb_mem = &Sample_Sensors_ControlBlock,
+		.cb_size = sizeof(Sample_Sensors_ControlBlock),
+		.stack_mem = &Sample_Sensors_Buffer[0],
+		.stack_size = sizeof(Sample_Sensors_Buffer),
+		.priority = (osPriority_t) osPriorityRealtime,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -103,6 +116,7 @@ static void MX_TIM2_Init(void);
 static void MX_CRC_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
+void Sample_Sensors(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -115,15 +129,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 //	vTaskNotifyGiveFromISR(Sample_Sensors_Handle, NULL);
 	switch (GPIO_Pin) {
 	case INT_1_ASM:
+		// TODO: Configure interrupts so that this int pin corresponds to accel or gyro
+				xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_ACCEL_OR_GYRO,
+								eSetBits, NULL);
 		break;
 	case INT_2_ASM:
+		// TODO: Configure interrupts so that this int pin corresponds to accel or gyro
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_ACCEL_OR_GYRO,
+						eSetBits, NULL);
 		break;
 	case INT_1_ACCEL:
 		/* Accelerometer interrupt */
 		// Log time of interrupt
 		bmx055_data.accel[4] = bmx055_data.accel[3];
 		bmx055_data.accel[3] = micros(Micros_Timer);
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )Accel_Sensor,
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_Accel,
 				eSetBits, NULL);
 		return;
 	case INT_1_GYRO:
@@ -131,7 +151,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		// Log time of interrupt
 		bmx055_data.gyro[4] = bmx055_data.gyro[3];
 		bmx055_data.gyro[3] = micros(Micros_Timer);
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )Gyro_Sensor,
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_gyro,
 				eSetBits, NULL);
 		return;
 	case DATA_READY_MAG:
@@ -139,7 +159,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		// Log time of interrupt
 		bmx055_data.mag[4] = bmx055_data.mag[3];
 		bmx055_data.mag[3] = micros(Micros_Timer);
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )Mag_Sensor,
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )BMX055_mag,
 				eSetBits, NULL);
 		return;
 	case GPS_PPS:
@@ -231,6 +251,9 @@ int main(void)
 
 	/* creation of State_Machine_T */
 	State_Machine_THandle = osThreadNew(State_Machine, NULL, &State_Machine_T_attributes);
+
+	/* creation of Sample_Sensors_ */
+	Sample_Sensors_Handle = osThreadNew(Sample_Sensors, NULL, &Sample_Sensors__attributes);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -930,6 +953,13 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
+	HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
+	HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
+	HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
+
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 	/* USER CODE END MX_GPIO_Init_2 */
 }
@@ -972,6 +1002,131 @@ void State_Machine(void *argument)
 		osDelay(1);
 	}
 	/* USER CODE END State_Machine */
+}
+
+/* USER CODE BEGIN Header_Sample_Sensors */
+/**
+ * @brief Function implementing the Sample_Sensors_ thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Sample_Sensors */
+void Sample_Sensors(void *argument)
+{
+	/* USER CODE BEGIN Sample_Sensors */
+	/* Init BMX055 */
+	if (!BMX055_init(&bmx055)) {
+		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
+				CRITICAL);
+	}
+	// Configure interrupts
+	BMX055_setInterrupts(&bmx055);
+
+	/* Init MS5611 */
+
+	/* Init ASM330 */
+
+	/* Enable interrupts */
+	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
+	// Sensor type that is ready when task is released
+	uint32_t sensor_type;
+	/* Infinite loop */
+	for (;;)
+			{
+		// Wait for sensors to be ready before running task
+		xTaskNotifyWait(0, 0, &sensor_type, (TickType_t) portMAX_DELAY);
+		/* Check each sensor each loop for new data */
+#ifndef RUN_HITL
+		switch (sensor_type) {
+		case Accel_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, Accel_Sensor);
+			float accel_data[3];
+			BMX055_readAccel(&bmx055, accel_data);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
+					sizeof(accel_data) / sizeof(int),
+					ACCEL_ALPHA);
+			break;
+
+		case Gyro_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, Gyro_Sensor);
+			float gyro_data[3];
+			BMX055_readGyro(&bmx055, gyro_data);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
+					sizeof(gyro_data) / sizeof(int),
+					GYRO_ALPHA);
+			break;
+
+		case Mag_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, Mag_Sensor);
+			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+			break;
+
+		case Accel_Sensor | Gyro_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle,
+					Accel_Sensor | Gyro_Sensor);
+			BMX055_readAccel(&bmx055, accel_data);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
+					sizeof(accel_data) / sizeof(int),
+					ACCEL_ALPHA);
+			BMX055_readGyro(&bmx055, gyro_data);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
+					sizeof(gyro_data) / sizeof(int),
+					GYRO_ALPHA);
+
+			break;
+
+		case Accel_Sensor | Mag_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle,
+					Accel_Sensor | Mag_Sensor);
+			BMX055_readAccel(&bmx055, accel_data);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
+					sizeof(accel_data) / sizeof(int),
+					ACCEL_ALPHA);
+			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+			break;
+
+		case Gyro_Sensor | Mag_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle,
+					Gyro_Sensor | Mag_Sensor);
+			BMX055_readGyro(&bmx055, gyro_data);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
+					sizeof(gyro_data) / sizeof(int),
+					GYRO_ALPHA);
+			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+			break;
+
+		case Accel_Sensor | Gyro_Sensor | Mag_Sensor:
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle,
+					Accel_Sensor | Gyro_Sensor | Mag_Sensor);
+			BMX055_readAccel(&bmx055, accel_data);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel,
+					sizeof(accel_data) / sizeof(int),
+					ACCEL_ALPHA);
+			BMX055_readGyro(&bmx055, gyro_data);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro,
+					sizeof(gyro_data) / sizeof(int),
+					GYRO_ALPHA);
+			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+			break;
+
+		default:
+			break;
+		}
+#endif
+	}
+	/* USER CODE END Sample_Sensors */
 }
 
 /**
