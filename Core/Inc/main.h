@@ -74,6 +74,8 @@ void Error_Handler(void);
 #define MAIN_CONT_GPIO_Port GPIOB
 #define RESET_RF_Pin GPIO_PIN_1
 #define RESET_RF_GPIO_Port GPIOB
+#define SPI4_NSS_Pin GPIO_PIN_11
+#define SPI4_NSS_GPIO_Port GPIOE
 #define IO0_RF_Pin GPIO_PIN_12
 #define IO0_RF_GPIO_Port GPIOB
 #define IO0_RF_EXTI_IRQn EXTI15_10_IRQn
@@ -118,11 +120,16 @@ void Error_Handler(void);
 #define MAIN_L_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define BMX055_Accel 0b00001
-#define BMX055_Gyro 0b00010
-#define BMX055_Mag 0b00100
-#define AMS330_Accel 0b01000
-#define AMS330_Gyro 0b10000
+// TODO: package these constants into more descriptive and logical names
+#define ACCEL_ALPHA 1
+#define GYRO_ALPHA 1
+
+#define BMX055_Accel 0b000001
+#define BMX055_Gyro 0b000010
+#define BMX055_Mag 0b000100
+#define AMS330_Accel 0b001000
+#define AMS330_Gyro 0b010000
+#define MAX_10S_GPS 0b100000
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

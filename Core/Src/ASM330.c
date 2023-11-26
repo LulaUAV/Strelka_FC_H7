@@ -10,6 +10,14 @@
 GPIO_TypeDef *CS_up_GPIO_Port;
 uint16_t CS_up_Pin;
 
+stmdev_ctx_t dev_ctx;
+asm330lhhx_pin_int1_route_t int1_route;
+asm330lhhx_pin_int2_route_t int2_route;
+
+/* Platform specific functions */
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
+
 uint8_t ASM330_Init(ASM330_handle *asm330) {
 	static uint8_t whoamI, rst;
 
@@ -69,23 +77,24 @@ uint8_t ASM330_readAccel(ASM330_handle *asm330, float *accel) {
 		accel[0] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 1;
+		return 0;
 	case ASM330LHHX_4g:
 		accel[0] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 1;
+		return 0;
 	case ASM330LHHX_8g:
 		accel[0] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 1;
+		return 0;
 	case ASM330LHHX_16g:
 		accel[0] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 1;
+		return 0;
 	}
+	return 1;
 }
 
 uint8_t ASM330_readGyro(ASM330_handle *asm330, float *gyro) {
@@ -126,11 +135,41 @@ uint8_t ASM330_readGyro(ASM330_handle *asm330, float *gyro) {
 	}
 }
 
+/*
+ * @brief  Write generic device register (platform dependent)
+ *
+ * @param  handle    customizable argument. In this examples is used in
+ *                   order to select the correct sensor bus handler.
+ * @param  reg       register to write
+ * @param  bufp      pointer to data to write in register reg
+ * @param  len       number of consecutive register to write
+ *
+ */
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len)
 {
 	HAL_GPIO_WritePin(CS_up_GPIO_Port, CS_up_Pin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(handle, &reg, 1, 1000);
 	HAL_SPI_Transmit(handle, (uint8_t*) bufp, len, 1000);
+	HAL_GPIO_WritePin(CS_up_GPIO_Port, CS_up_Pin, GPIO_PIN_SET);
+	return 0;
+}
+
+/*
+ * @brief  Read generic device register (platform dependent)
+ *
+ * @param  handle    customizable argument. In this examples is used in
+ *                   order to select the correct sensor bus handler.
+ * @param  reg       register to read
+ * @param  bufp      pointer to buffer that store the data read
+ * @param  len       number of consecutive register to read
+ *
+ */
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len)
+{
+	reg |= 0x80;
+	HAL_GPIO_WritePin(CS_up_GPIO_Port, CS_up_Pin, GPIO_PIN_RESET);
+	HAL_SPI_Transmit(handle, &reg, 1, 1000);
+	HAL_SPI_Receive(handle, bufp, len, 1000);
 	HAL_GPIO_WritePin(CS_up_GPIO_Port, CS_up_Pin, GPIO_PIN_SET);
 	return 0;
 }

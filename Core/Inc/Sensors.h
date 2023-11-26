@@ -34,7 +34,13 @@ typedef struct {
 }MS5611_Data_Handle;
 
 typedef struct {
+	float accel[3];
+	float gyro[3];
+}ASM330_Data_Handle;
 
+#define GPS_Buff_Size 1024
+typedef struct {
+	uint8_t gps_buffer[GPS_Buff_Size];
 }GPS_Data_Handle;
 
 void init_adc(ADC_HandleTypeDef* hadc);

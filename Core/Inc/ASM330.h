@@ -23,20 +23,7 @@ typedef struct {
 	uint16_t CS_Pin;
 } ASM330_handle;
 
-/* Platform specific functions */
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp,
-                              uint16_t len);
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp,
-                             uint16_t len);
-static void platform_delay(uint32_t ms);
-
 #define BOOT_TIME 10		// ms
-
-stmdev_ctx_t dev_ctx;
-
-asm330lhhx_pin_int1_route_t int1_route;
-asm330lhhx_pin_int2_route_t int2_route;
-
 
 uint8_t ASM330_Init(ASM330_handle *asm330);
 uint8_t ASM330_readAccel(ASM330_handle *asm330, float* accel);
