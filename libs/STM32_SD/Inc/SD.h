@@ -15,6 +15,8 @@
 /* DEFINITIONS */
 #define LOG_FREQUENCY 100 // Hz
 
+bool flash_good;
+
 FRESULT SD_init();
 FRESULT SD_mk_root_dir();
 void SD_Error_Handler();

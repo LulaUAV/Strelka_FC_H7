@@ -693,10 +693,14 @@ uint16_t LoRa_init(LoRa *_LoRa) {
 		HAL_Delay(10);
 
 		read = LoRa_read(_LoRa, RegVersion);
-		if (read == 0x12)
+		if (read == 0x12) {
+			_LoRa->lora_good = true;
 			return LORA_OK;
-		else
+		}
+		else {
+			_LoRa->lora_good = false;
 			return LORA_NOT_FOUND;
+		}
 	} else {
 		return LORA_UNAVAILABLE;
 	}

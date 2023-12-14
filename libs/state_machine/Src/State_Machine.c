@@ -154,3 +154,37 @@ void deploy_main_parachute(GPIO_TypeDef *H_port, GPIO_TypeDef *L_port, uint16_t 
 	HAL_GPIO_WritePin(H_port, H_pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_RESET);
 }
+
+ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint16_t L_pin) {
+	ematchState state;
+	uint32_t EventType;
+	HAL_StatusTypeDef res;
+
+	// Set FIRE_L pin to allow for continuity sensing
+	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_SET);
+
+	// Start ADC
+	HAL_ADC_Start(hadc);
+	while(eventType == ADC_EOSMP_EVENT || res == HAL_TIMEOUT) {
+		res = HAL_ADC_PollForEvent(hadc, EventType, 1000);
+		osDelay(10);
+	}
+	if(res == HAL_TIMEOUT)
+		return ERROR;
+
+	uint32_t AD_RES = HAL_ADC_GetValue(hadc);
+	if(AD_RES > 52428) {
+		// Greater than 80% HIGH state means open circuit
+		state = OPEN_CIRCUIT;
+	}
+	else if(AD_RES < 13107) {
+		// Less than 20% of HIGH state means good
+		state = GOOD;
+	}
+
+	// Stop ADC
+	HAL_ADC_Stop(hadc);
+	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_SET);
+
+	return state;
+}

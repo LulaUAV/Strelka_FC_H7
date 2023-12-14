@@ -31,6 +31,7 @@
 #include "ASM330.h"
 #include "debug.h"
 #include "gps.h"
+#include "State_Machine.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -152,6 +153,23 @@ void Sample_Baro(void *argument);
 /* USER CODE BEGIN PFP */
 enum debug_level dbg_level = INFO;
 enum debug_level dbg;
+
+Sensor_State sensor_state = {
+		.asm330_acc_good = &asm330.acc_good,
+		.asm330_gyro_good = &asm330.gyro_good,
+		.bmx055_acc_good = &bmx055.acc_good,
+		.bmx055_gyro_good = &bmx055.gyro_good,
+		.bmx055_mag_good = &bmx055.mag_good,
+		.flash_good = &flash_good,
+		.gps_good = &gps.gps_good,
+		.lora_good = &LoRa_Handle.lora_good,
+		.ms5611_good = &ms5611.baro_good,
+};
+
+System_State_FC_t state_machine_fc = {
+		.transmit_gps = true,
+		.sensor_state = sensor_state,
+};
 
 BMX055_Handle bmx055 = {
 		.hspi = &hspi2,
@@ -1093,9 +1111,23 @@ void StartDefaultTask(void *argument)
 void State_Machine(void *argument)
 {
   /* USER CODE BEGIN State_Machine */
+	// Calibrate ADC for better accuracy
+	HAL_ADCEx_Calibration_Start(&hadc1);
+
 	while (!sensors_initialised) {
 		osDelay(10);
 	}
+
+	state_machine_fc.flight_state = IDLE_ON_PAD;
+	state_machine_fc.starting_altitude = ms5611_data.altitude;
+
+	// Check drogue continuity
+	state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
+
+	// Check main continuity
+	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+
+
 
 	/* Infinite loop */
 	for (;;)
@@ -1139,10 +1171,14 @@ void Sample_Sensors(void *argument)
 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 	/* Perform system checks before arming */
+	// Check e-match continuities
+
 	// Check critical sensors
 	if((bmx055.acc_good == false && ams330.acc_good == false) || ms5611.baro_good == false) {
 		// Alert critical sensor error code
 	}
+
+
 
 	// Sensor type that is ready when task is released
 	uint32_t sensor_type;
