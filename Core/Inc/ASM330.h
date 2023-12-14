@@ -21,6 +21,8 @@ typedef struct {
 	asm330lhhx_fs_g_t gyro_scale;
 	GPIO_TypeDef *CS_GPIO_Port;
 	uint16_t CS_Pin;
+	uint8_t acc_good;
+	uint8_t gyro_good;
 } ASM330_handle;
 
 #define BOOT_TIME 10		// ms

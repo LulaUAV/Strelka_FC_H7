@@ -130,6 +130,8 @@ void Error_Handler(void);
 #define AMS330_Accel 0b001000
 #define AMS330_Gyro 0b010000
 #define MAX_10S_GPS 0b100000
+
+bool sensors_initialised = false;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -19,6 +19,12 @@ bool MS5611_init(MS5611_Handle* ms5611, ms5611_osr_t osr) {
 
     MS5611_readPROM(ms5611);
 
+    // Check PROM address to check SPI bus is working
+    if(ms5611->fc[0] == 0xFF && ms5611->fc[1] == 0xFF && ms5611->fc[2] == 0xFF && ms5611->fc[3] == 0xFF) {
+    	ms5611->baro_good = false;
+    	return false;
+    }
+
     return true;
 }
 
