@@ -8,17 +8,18 @@
 #ifndef INC_STATE_MACHINE_H_
 #define INC_STATE_MACHINE_H_
 #include <stdbool.h>
-#include "stm32f4xx_hal.h"
+//#include "stm32f4xx_hal.h"
+#include "stm32h7xx_hal.h"
 #include <math.h>
 #include <stdlib.h>
 
-enum flightState {
+typedef enum flightState {
 	IDLE_ON_PAD, LAUNCHED, BURNOUT, APOGEE, MAIN_CHUTE_ALTITUDE, LANDED,
-};
+} flightState;
 
-enum ematchState {
-	OEPN_CIRCUIT, SHORT_CIRCUIT, GOOD,
-};
+typedef enum ematchState {
+	OPEN_CIRCUIT, SHORT_CIRCUIT, GOOD, ERROR
+} ematchState;
 
 /*
  * If defined, flight computer will use altitude threshold and gravity threshold
@@ -62,25 +63,38 @@ enum ematchState {
 #define MAIN_DEPLOY_ALT 				300				// m
 #define MIN_DEPLOY_ALT 					0				// m
 
+/* A hardware specific data type containing state information about on board sensors */
 typedef struct {
-	bool transmit_gps;
-	enum flightState flight_state;
-	float starting_altitude;
+	bool* asm330_acc_good;
+	bool* asm330_gyro_good;
+	bool* bmx055_acc_good;
+	bool* bmx055_gyro_good;
+	bool* bmx055_mag_good;
+	bool* ms5611_good;
+	bool* gps_good;
+	bool* flash_good;
+	bool* lora_good;
+} Sensor_State;
+
+typedef struct {
+	flightState flight_state;
+	ematchState drogue_ematch_state;
+	ematchState main_ematch_state;
+
 	uint32_t launch_time;
-	bool controller_saturated;
-	float drogue_deploy_altitude;
+	float starting_altitude;
 	uint32_t drogue_deploy_time;
-	float main_deploy_altitude;
+	float drogue_deploy_altitude;
 	uint32_t main_deploy_time;
+	float main_deploy_altitude;
 	uint32_t landing_time;
+	float landing_altitude;
+
 	float battery_voltage;
-	enum drogue_ematch_state;
-	enum main_ematch_state;
-	bool fire_drogue_ready;
-	bool fire_main_ready;
-	bool fire_valve_ready;
-	bool flash_good;
-} System_State;
+	Sensor_State sensor_state;
+
+	bool transmit_gps;
+} System_State_FC_t;
 
 bool detect_launch_accel(float* current_acc, float* prev_acc, float current_altitude);
 bool detect_launch_baro();
@@ -91,6 +105,7 @@ void fill_median_filter_buffer(float data_point, size_t idx);
 bool detect_landing(float* current_vertical_velocity, float* previous_vertical_velocity);
 void deploy_drogue_parachute(GPIO_TypeDef* H_port, GPIO_TypeDef* L_port, uint16_t H_pin, uint16_t L_pin);
 void deploy_main_parachute(GPIO_TypeDef* H_port, GPIO_TypeDef* L_port, uint16_t H_pin, uint16_t L_pin);
+ematchState test_continuity();
 int compare(const void *a, const void *b);
 float calculateMedian(float arr[], size_t n);
 
