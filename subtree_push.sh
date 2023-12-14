@@ -5,9 +5,17 @@
 git fetch git@github.com:Hover-Disaster/STM32_BMX055.git
 git fetch git@github.com:Hover-Disaster/STM32_MS5611.git
 git fetch git@github.com:Hover-Disaster/STM32_SD.git 
+git fetch git@github.com:Hover-Disaster/STM32_LoRa.git 
 git fetch git@github.com:Hover-Disaster/Strelka_State_Machine.git
+
+git subtree pull --prefix=libs/STM32_BMX055 git@github.com:Hover-Disaster/STM32_BMX055.git main
+git subtree pull --prefix=libs/STM32_MS5611 git@github.com:Hover-Disaster/STM32_MS5611.git main
+git subtree pull --prefix=libs/STM32_SD git@github.com:Hover-Disaster/STM32_SD.git main
+git subtree pull --prefix=libs/STM32_SD git@github.com:Hover-Disaster/STM32_LoRa.git main
+git subtree pull --prefix=libs/state_machine git@github.com:Hover-Disaster/Strelka_State_Machine.git main
 
 git subtree push --prefix=libs/STM32_BMX055 git@github.com:Hover-Disaster/STM32_BMX055.git main
 git subtree push --prefix=libs/STM32_MS5611 git@github.com:Hover-Disaster/STM32_MS5611.git main
 git subtree push --prefix=libs/STM32_SD git@github.com:Hover-Disaster/STM32_SD.git main
+git subtree push --prefix=libs/STM32_SD git@github.com:Hover-Disaster/STM32_LoRa.git main
 git subtree push --prefix=libs/state_machine git@github.com:Hover-Disaster/Strelka_State_Machine.git main
