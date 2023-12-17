@@ -123,13 +123,12 @@ void Sample_Baro(void *argument);
 enum debug_level dbg_level = INFO;
 enum debug_level dbg;
 
-Sensor_State sensor_state = { .asm330_acc_good = &asm330.acc_good, .asm330_gyro_good = &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
-
-System_State_FC_t state_machine_fc = { .transmit_gps = true, .sensor_state = sensor_state, };
 
 BMX055_Handle bmx055 = { .hspi = &hspi2, .acc_CS_port = SPI2_NSS1_GPIO_Port, .acc_CS_pin = SPI2_NSS1_Pin, .acc_range = BMX055_ACC_RANGE_8, .acc_bandwidth = BMX055_ACC_PMU_BW_62_5, .gyro_CS_port = SPI2_NSS2_GPIO_Port, .gyro_CS_pin = SPI2_NSS2_Pin, .gyro_range = BMX055_GYRO_RANGE_32_8, .gyro_bandwidth = BMX055_GYRO_BW_64, .mag_CS_port = SPI2_NSS3_GPIO_Port, .mag_CS_pin = SPI2_NSS3_Pin, .mag_data_rate = BMX055_MAG_DATA_RATE_30,
 
 };
+uint32_t device_hardware_id;
+bool flash_good = false;
 BMX055_Data_Handle bmx055_data = { 0 };
 MS5611_Data_Handle ms5611_data = { 0 };
 ASM330_Data_Handle asm330_data = { 0 };
@@ -139,6 +138,12 @@ LoRa LoRa_Handle;
 MS5611_Handle ms5611 = { .hspi = &hspi4, .baro_CS_port = SPI4_NSS_GPIO_Port, .baro_CS_pin = SPI4_NSS_Pin, };
 ms5611_osr_t osr = MS5611_ULTRA_HIGH_RES;
 ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
+
+Sensor_State sensor_state = { .asm330_acc_good = &asm330.acc_good, .asm330_gyro_good = &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = (uint8_t*)&flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
+
+System_State_FC_t state_machine_fc = { .transmit_gps = true, .sensor_state = &sensor_state, };
+
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -148,10 +153,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 //	vTaskNotifyGiveFromISR(Sample_Sensors_Handle, NULL);
 	switch (GPIO_Pin) {
 	case INT_1_ASM_Pin:
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_Accel, eSetBits, NULL);
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )ASM330_Accel, eSetBits, NULL);
 		break;
 	case INT_2_ASM_Pin:
-		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )AMS330_Gyro, eSetBits, NULL);
+		xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )ASM330_Gyro, eSetBits, NULL);
 		break;
 	case INT_1_ACCEL_Pin:
 		/* Accelerometer interrupt */
@@ -231,6 +236,8 @@ int main(void) {
 	MX_CRC_Init();
 	MX_TIM13_Init();
 	/* USER CODE BEGIN 2 */
+	// Read device hardware ID
+	device_hardware_id = DBGMCU->IDCODE;
 
 	/* LoRa configurations */
 	LoRa_Handle = newLoRa();
@@ -968,7 +975,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 /****** Radio control packet handling functions ******/
-void handle_rf_rx_packet(Rx_Packets_Handle *rx_packets, uint8_t *Rx_buffer, size_t len) {
+void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len) {
 	uint8_t identifier = Rx_buffer[0];
 	uint32_t receiver_hardware_id;
 	uint32_t sender_hardware_id;
@@ -979,7 +986,7 @@ void handle_rf_rx_packet(Rx_Packets_Handle *rx_packets, uint8_t *Rx_buffer, size
 		return;
 	}
 	// Check that packet is intended for this device
-	if (receiver_hardware_id != rx_packets->hardware_id) {
+	if (receiver_hardware_id != device_hardware_id) {
 		return;
 	}
 	uint8_t payload_len = get_rf_payload_len(identifier);
@@ -1036,7 +1043,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
 		cont_pkt.drogue_ematch_state = state_machine_fc.drogue_ematch_state;
 		cont_pkt.main_ematch_state = state_machine_fc.main_ematch_state;
-		send_rf_packet(CONTINUITY_RES, &cont_pkt, sizeof(cont_pkt));
+		send_rf_packet(CONTINUITY_REQ, &cont_pkt, sizeof(cont_pkt));
 		break;
 	case FIRE_DROGUE_REQ:
 		fire_drogue_res fire_drogue_pkt = {.result = 0};
@@ -1094,7 +1101,19 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 }
 
 void send_rf_packet(uint8_t identifier, uint8_t* payload_data, size_t len) {
-	// TODO: Construct and send packet
+	uint8_t *send_pkt = (uint8_t*) malloc(len + 13);
+	send_pkt[0] = identifier;
+	uint32_t sender_unique_id = device_hardware_id;
+	uint32_t receiver_unique_id = 0x00000000;		// Ground station ID
+	memcpy(&send_pkt[1], &sender_unique_id, 4);
+	memcpy(&send_pkt[5], &receiver_unique_id, 4);
+	memcpy(&send_pkt[9], payload_data, len);
+	uint32_t crc32 = Calculate_CRC32(&hcrc, send_pkt, sizeof(send_pkt));
+	memcpy(&send_pkt[len+9], &crc32, 4);
+	uint8_t res = LoRa_transmit(&LoRa_Handle, send_pkt, sizeof(send_pkt), 1000);
+	if(res) {
+		// TODO: Handle LoRa timeout
+	}
 }
 
 /****** Radio control packet handling END *****/
@@ -1129,7 +1148,7 @@ void StartDefaultTask(void *argument) {
 void State_Machine(void *argument) {
 	/* USER CODE BEGIN State_Machine */
 	// Calibrate ADC for better accuracy
-	HAL_ADCEx_Calibration_Start(&hadc1);
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
 
 	while (!sensors_initialised) {
 		osDelay(10);
@@ -1163,6 +1182,8 @@ void State_Machine(void *argument) {
 /* USER CODE END Header_Sample_Sensors */
 void Sample_Sensors(void *argument) {
 	/* USER CODE BEGIN Sample_Sensors */
+	sensors_initialised = false;
+
 	/* Init BMX055 */
 	if (!BMX055_init(&bmx055)) {
 //		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
@@ -1189,7 +1210,7 @@ void Sample_Sensors(void *argument) {
 	/* Perform system checks before arming */
 	// Check e-match continuities
 	// Check critical sensors
-	if ((bmx055.acc_good == false && ams330.acc_good == false) || ms5611.baro_good == false) {
+	if ((bmx055.acc_good == false && asm330.acc_good == false) || ms5611.baro_good == false) {
 		// Alert critical sensor error code
 	}
 
@@ -1226,18 +1247,18 @@ void Sample_Sensors(void *argument) {
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			break;
 		}
-		// Check AMS330_Accel
-		if (sensor_type & AMS330_Accel) {
+		// Check asm330_Accel
+		if (sensor_type & ASM330_Accel) {
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, AMS330_Accel);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Accel);
 			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
 				// TODO: Handle error
 			}
 		}
-		// Check AMS330_Gyro
-		if (sensor_type & AMS330_Gyro) {
+		// Check asm330_Gyro
+		if (sensor_type & ASM330_Gyro) {
 			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, AMS330_Gyro);
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Gyro);
 			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
 				// TODO: Handle error
 			}

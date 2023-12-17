@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -129,11 +129,11 @@ void Error_Handler(void);
 #define BMX055_Accel 0b000001
 #define BMX055_Gyro 0b000010
 #define BMX055_Mag 0b000100
-#define AMS330_Accel 0b001000
-#define AMS330_Gyro 0b010000
+#define ASM330_Accel 0b001000
+#define ASM330_Gyro 0b010000
 #define MAX_10S_GPS 0b100000
 
-bool sensors_initialised = false;
+bool sensors_initialised;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

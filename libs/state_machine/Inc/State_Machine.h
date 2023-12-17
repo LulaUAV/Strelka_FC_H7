@@ -91,7 +91,7 @@ typedef struct {
 	float landing_altitude;
 
 	float battery_voltage;
-	Sensor_State sensor_state;
+	Sensor_State* sensor_state;
 
 	bool transmit_gps;
 } System_State_FC_t;

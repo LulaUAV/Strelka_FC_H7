@@ -8,6 +8,7 @@
 #ifndef INC_ASM330_H_
 #define INC_ASM330_H_
 
+#include <stdbool.h>
 #include "asm330lhhx_reg.h"
 #include "cmsis_os.h"
 #include "stm32h7xx_hal.h"

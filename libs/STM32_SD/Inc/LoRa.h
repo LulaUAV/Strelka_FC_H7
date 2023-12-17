@@ -134,6 +134,8 @@ typedef struct LoRa_setting{
 	uint8_t			overCurrentProtection;
 	uint8_t 		modulationMode;
 
+	uint8_t 		lora_good;
+
 } LoRa;
 
 LoRa newLoRa(void);

@@ -33,12 +33,12 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 	/* Check device ID. */
 	asm330lhhx_device_id_get(&asm330->dev_ctx, &whoamI);
 	if (whoamI != ASM330LHHX_ID) {
-		ams330->acc_good = false;
-		ams330->gyro_good = false;
+		asm330->acc_good = false;
+		asm330->gyro_good = false;
 		return 1;
 	}
-	ams330->acc_good = true;
-	ams330->gyro_good = true;
+	asm330->acc_good = true;
+	asm330->gyro_good = true;
 
 	/* Restore default configuration. */
 	asm330lhhx_reset_set(&asm330->dev_ctx, PROPERTY_ENABLE);
