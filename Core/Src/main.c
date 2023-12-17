@@ -32,6 +32,7 @@
 #include "debug.h"
 #include "gps.h"
 #include "State_Machine.h"
+#include "Packets_Definitions.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -967,107 +968,133 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 /****** Radio control packet handling functions ******/
-void handle_rf_rx_packet(Rx_Packets_Handle *rx_packets, uint8_t *Rx_buffer, size_t len)
-{
-    uint8_t identifier = Rx_buffer[0];
-    uint32_t receiver_hardware_id;
-    uint32_t sender_hardware_id;
-    memcpy(&sender_hardware_id, &Rx_buffer[1], 4);
-    memcpy(&receiver_hardware_id, &Rx_buffer[5], 4);
-    // Check that sender is the ground station
-    if (sender_hardware_id != 0x00000000)
-    {
-        return;
-    }
-    // Check that packet is intended for this device
-    if (receiver_hardware_id != rx_packets->hardware_id)
-    {
-        return;
-    }
-    uint8_t payload_len = get_rf_payload_len(identifier);
+void handle_rf_rx_packet(Rx_Packets_Handle *rx_packets, uint8_t *Rx_buffer, size_t len) {
+	uint8_t identifier = Rx_buffer[0];
+	uint32_t receiver_hardware_id;
+	uint32_t sender_hardware_id;
+	memcpy(&sender_hardware_id, &Rx_buffer[1], 4);
+	memcpy(&receiver_hardware_id, &Rx_buffer[5], 4);
+	// Check that sender is the ground station
+	if (sender_hardware_id != 0x00000000) {
+		return;
+	}
+	// Check that packet is intended for this device
+	if (receiver_hardware_id != rx_packets->hardware_id) {
+		return;
+	}
+	uint8_t payload_len = get_rf_payload_len(identifier);
 
-    // Extract CRC bytes
-    uint32_t incoming_crc32;
-    memcpy(&incoming_crc32, &Rx_buffer[9 + payload_len], 4);
+	// Extract CRC bytes
+	uint32_t incoming_crc32;
+	memcpy(&incoming_crc32, &Rx_buffer[9 + payload_len], 4);
 
-    // Calculate CRC on all data up to CRC32 bytes
-    uint32_t calculated_crc32 = Calculate_CRC32(&hcrc, Rx_buffer, len);
+	// Calculate CRC on all data up to CRC32 bytes
+	uint32_t calculated_crc32 = Calculate_CRC32(&hcrc, Rx_buffer, len);
 
-    // Check that CRC32s match
-    if (incoming_crc32 != calculated_crc32)
-    {
-        return;
-    }
+	// Check that CRC32s match
+	if (incoming_crc32 != calculated_crc32) {
+		return;
+	}
 
-    handle_payload_data(identifier, &Rx_buffer[9]);
+	handle_payload_data(identifier, &Rx_buffer[9]);
 }
 
-uint8_t get_rf_payload_len(uint8_t identifier)
-{
-    switch (identifier)
-    {
-    case FLASH_MEMORY_CONFIG_SET:
-        // TODO: Define this packet
-        return FLASH_MEMORY_CONFIG_SET_PKT_LEN;
-    case GPS_TRACKING_CONFIG_SET:
-        return GPS_TRACKING_CONFIG_SET_PKT_LEN;
-    default:
-        return 0;
-    }
+uint8_t get_rf_payload_len(uint8_t identifier) {
+	switch (identifier) {
+	case FLASH_MEMORY_CONFIG_SET:
+		// TODO: Define this packet
+		return FLASH_MEMORY_CONFIG_SET_PKT_LEN;
+	case GPS_TRACKING_CONFIG_SET:
+		return GPS_TRACKING_CONFIG_SET_PKT_LEN;
+	default:
+		return 0;
+	}
 }
 
-uint32_t Calculate_CRC32(CRC_HandleTypeDef *hcrc, uint8_t *payload_data, size_t len)
-{
-    uint32_t *payload = (uint32_t *)malloc((len - 4) * sizeof(uint32_t));
-    // Copy payload_data into uint32_t array without including the last 4 bytes (the CRC)
-    for (int i = 0; i < len - sizeof(uint32_t); i++)
-    {
-        payload[i] = payload_data[i];
-    }
-    uint32_t crc = HAL_CRC_Calculate(hcrc, (uint32_t *)payload, (uint32_t)len - sizeof(uint32_t));
-    free(payload);
-    return crc;
+uint32_t Calculate_CRC32(CRC_HandleTypeDef *hcrc, uint8_t *payload_data, size_t len) {
+	uint32_t *payload = (uint32_t*) malloc((len - 4) * sizeof(uint32_t));
+	// Copy payload_data into uint32_t array without including the last 4 bytes (the CRC)
+	for (int i = 0; i < len - sizeof(uint32_t); i++) {
+		payload[i] = payload_data[i];
+	}
+	uint32_t crc = HAL_CRC_Calculate(hcrc, (uint32_t*) payload, (uint32_t) len - sizeof(uint32_t));
+	free(payload);
+	return crc;
 }
 
-void handle_payload_data(uint8_t identifier, uint8_t *payload_data)
-{
-    switch (identifier)
-    {
-    case BAT_VOL_REQ:
-        break;
-    case CONTINUITY_REQ:
-        break;
-    case FIRE_DROGUE_REQ:
-        break;
-    case FIRE_MAIN_REQ:
-        break;
-    case GPS1_STATE_REQ:
-        break;
-    case GPS2_STATE_REQ:
-        break;
-    case ACCEL1_STATE_REQ:
-        break;
-    case ACCEL2_STATE_REQ:
-        break;
-    case GYRO1_STATE_REQ:
-        break;
-    case GYRO2_STATE_REQ:
-        break;
-    case MAG1_STATE_REQ:
-        break;
-    case MAG2_STATE_REQ:
-        break;
-    case BARO1_STATE_REQ:
-        break;
-    case BARO2_STATE_REQ:
-        break;
-    case FLASH_MEMORY_STATE_REQ:
-        break;
-    case FLASH_MEMORY_CONFIG_SET:
-        break;
-    case GPS_TRACKING_CONFIG_SET:
-        break;
-    }
+void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
+	switch (identifier) {
+	case BAT_VOL_REQ:
+		bat_vol_res bat_vol_pkt = { .battery_voltage = 0 /* TODO: Add data here */};
+		send_rf_packet(BAT_VOL_RES, &bat_vol_pkt, sizeof(bat_vol_pkt));
+		break;
+	case CONTINUITY_REQ:
+		continuity_res cont_pkt;
+		// Read drogue continuity
+		state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
+		// Read main continuity
+		state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+		cont_pkt.drogue_ematch_state = state_machine_fc.drogue_ematch_state;
+		cont_pkt.main_ematch_state = state_machine_fc.main_ematch_state;
+		send_rf_packet(CONTINUITY_RES, &cont_pkt, sizeof(cont_pkt));
+		break;
+	case FIRE_DROGUE_REQ:
+		fire_drogue_res fire_drogue_pkt = {.result = 0};
+		deploy_drogue_parachute(DROGUE_H_GPIO_Port, DROGUE_L_GPIO_Port, DROGUE_H_Pin, DROGUE_L_Pin);
+		send_rf_packet(FIRE_DROGUE_RES, &fire_drogue_pkt, sizeof(fire_drogue_pkt));
+		break;
+	case FIRE_MAIN_REQ:
+		fire_main_res fire_main_pkt = {.result = 0};
+		deploy_main_parachute(MAIN_H_GPIO_Port, MAIN_L_GPIO_Port, MAIN_H_Pin, MAIN_L_Pin);
+		send_rf_packet(FIRE_MAIN_RES, &fire_main_pkt, sizeof(fire_main_pkt));
+		break;
+	case GPS1_STATE_REQ:
+		gps1_state_res gps1_state_pkt = {
+				.gps_good = gps.gps_good,
+				.latitude = minmea_tocoord(&gps.gga_frame.latitude),
+				.longitude = minmea_tocoord(&gps.gga_frame.longitude),
+				.altitude = minmea_tofloat(&gps.gga_frame.altitude),
+		};
+		send_rf_packet(GPS1_STATE_RES, &gps1_state_pkt, sizeof(gps1_state_pkt));
+		break;
+	case GPS2_STATE_REQ:
+		break;
+	case ACCEL1_STATE_REQ:
+		// TODO
+		break;
+	case ACCEL2_STATE_REQ:
+		// TODO
+		break;
+	case GYRO1_STATE_REQ:
+		// TODO
+		break;
+	case GYRO2_STATE_REQ:
+		// TODO
+		break;
+	case MAG1_STATE_REQ:
+		// TODO
+		break;
+	case MAG2_STATE_REQ:
+		break;
+	case BARO1_STATE_REQ:
+		// TODO
+		break;
+	case BARO2_STATE_REQ:
+		break;
+	case FLASH_MEMORY_STATE_REQ:
+		// TODO
+		break;
+	case FLASH_MEMORY_CONFIG_SET:
+		// TODO
+		break;
+	case GPS_TRACKING_CONFIG_SET:
+		// TODO
+		break;
+	}
+}
+
+void send_rf_packet(uint8_t identifier, uint8_t* payload_data, size_t len) {
+	// TODO: Construct and send packet
 }
 
 /****** Radio control packet handling END *****/
