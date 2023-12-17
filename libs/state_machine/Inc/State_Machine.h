@@ -18,7 +18,7 @@ typedef enum flightState {
 } flightState;
 
 typedef enum ematchState {
-	OPEN_CIRCUIT, SHORT_CIRCUIT, GOOD, ERROR
+	OPEN_CIRCUIT, SHORT_CIRCUIT, GOOD, EMATCH_ERROR
 } ematchState;
 
 /*

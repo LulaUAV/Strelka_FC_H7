@@ -165,12 +165,12 @@ ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint1
 
 	// Start ADC
 	HAL_ADC_Start(hadc);
-	while(eventType == ADC_EOSMP_EVENT || res == HAL_TIMEOUT) {
+	while(eventType != ADC_EOSMP_EVENT || res != HAL_TIMEOUT) {
 		res = HAL_ADC_PollForEvent(hadc, EventType, 1000);
 		osDelay(10);
 	}
 	if(res == HAL_TIMEOUT)
-		return ERROR;
+		return EMATCH_ERROR;
 
 	uint32_t AD_RES = HAL_ADC_GetValue(hadc);
 	if(AD_RES > 52428) {
@@ -184,7 +184,7 @@ ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint1
 
 	// Stop ADC
 	HAL_ADC_Stop(hadc);
-	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_RESET);
 
 	return state;
 }

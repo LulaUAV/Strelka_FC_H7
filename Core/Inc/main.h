@@ -118,6 +118,8 @@ void Error_Handler(void);
 #define MAIN_H_GPIO_Port GPIOB
 #define MAIN_L_Pin GPIO_PIN_7
 #define MAIN_L_GPIO_Port GPIOB
+#define BUZZER_Pin GPIO_PIN_0
+#define BUZZER_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 // TODO: package these constants into more descriptive and logical names
