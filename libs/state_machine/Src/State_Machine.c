@@ -7,7 +7,7 @@
 
 #include "State_Machine.h"
 
-extern System_State system_state;
+extern System_State_FC_t state_machine_fc;
 
 /*
  * Function to detect launch of the vehicle
@@ -165,7 +165,7 @@ ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint1
 
 	// Start ADC
 	HAL_ADC_Start(hadc);
-	while(eventType != ADC_EOSMP_EVENT || res != HAL_TIMEOUT) {
+	while(EventType != ADC_EOSMP_EVENT || res != HAL_TIMEOUT) {
 		res = HAL_ADC_PollForEvent(hadc, EventType, 1000);
 		osDelay(10);
 	}

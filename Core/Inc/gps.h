@@ -31,6 +31,11 @@ typedef struct {
 	bool gps_good;
 }GPS_Handle;
 
+typedef struct {
+	bool tracking_enabled;
+	float chirp_frequency;
+} GPS_Tracking_Handle;
+
 void parse_nmea(uint8_t* nmea_string);
 
 #endif /* INC_GPS_H_ */

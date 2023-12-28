@@ -42,15 +42,16 @@
 #define FLASH_MEMORY_STATE_REQ 0x1c
 #define FLASH_MEMORY_STATE_RES 0x1d
 #define FLASH_MEMORY_CONFIG_SET 0x1e
-#define GPS_TRACKING_CONFIG_RES 0x1f
-#define GPS_TRACKING_CONFIG_SET 0x20
-#define GPS_TRACKING_PACKET 0x21
+#define GPS_TRACKING_CONFIG_REQ 0x1f
+#define GPS_TRACKING_CONFIG_RES 0x20
+#define GPS_TRACKING_CONFIG_SET 0x21
+#define GPS_TRACKING_PACKET 0x22
 
 /* Payload lengths */
 #define BAT_VOL_REQ_PKT_LEN 0x00
 #define BAT_VOL_RES_PKT_LEN 0x00
 #define CONTINUITY_REQ_PKT_LEN 0x00
-#define CONTINUITY _RES_PKT_LEN 0x00
+#define CONTINUITY_RES_PKT_LEN 0x00
 #define FIRE_DROGUE_REQ_PKT_LEN 0x00
 #define FIRE_DROGUE_RES_PKT_LEN 0x00
 #define FIRE_MAIN_REQ_PKT_LEN 0x00
@@ -141,16 +142,16 @@ typedef struct
 {
 	uint8_t gyro_good;
 	float gyroX;
-	float gyroy;
-	float gyroz;
+	float gyroY;
+	float gyroZ;
 } gyro1_state_res;
 
 typedef struct
 {
 	uint8_t gyro_good;
 	float gyroX;
-	float gyroy;
-	float gyroz;
+	float gyroY;
+	float gyroZ;
 } gyro2_state_res;
 
 typedef struct
@@ -189,16 +190,24 @@ typedef struct
 {
 	uint8_t flash_good;
 	float write_speed;
+	float available_space;
 } flash_state_res;
 
 typedef struct
 {
+	float write_speed;
+} flash_memory_config_set;
+
+typedef struct
+{
 	uint8_t gps_good;
+	uint8_t tracking_enabled;
 	float chirp_frequency;
 } gps_tracking_config_res;
 
 typedef struct
 {
+	uint8_t tracking_enabled;
 	float chirp_frequency;
 } gps_tracking_config_set;
 

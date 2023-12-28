@@ -53,6 +53,11 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len);
+uint8_t get_rf_payload_len(uint8_t identifier);
+uint32_t Calculate_CRC32(CRC_HandleTypeDef *hcrc, uint8_t *payload_data, size_t len);
+void handle_payload_data(uint8_t identifier, uint8_t *payload_data);
+void send_rf_packet(uint8_t identifier, uint8_t* payload_data, size_t len);
 
 /* USER CODE END EFP */
 
@@ -132,8 +137,6 @@ void Error_Handler(void);
 #define ASM330_Accel 0b001000
 #define ASM330_Gyro 0b010000
 #define MAX_10S_GPS 0b100000
-
-bool sensors_initialised;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
