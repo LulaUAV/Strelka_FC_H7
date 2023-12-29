@@ -61,6 +61,8 @@ FDCAN_HandleTypeDef hfdcan1;
 
 I2C_HandleTypeDef hi2c2;
 
+RTC_HandleTypeDef hrtc;
+
 SD_HandleTypeDef hsd1;
 
 SPI_HandleTypeDef hspi1;
@@ -170,6 +172,7 @@ static void MX_I2C2_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_CRC_Init(void);
 static void MX_TIM13_Init(void);
+static void MX_RTC_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
 void Sample_Sensors(void *argument);
@@ -294,6 +297,7 @@ int main(void)
   MX_TIM2_Init();
   MX_CRC_Init();
   MX_TIM13_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 	// Read device hardware ID
 	device_hardware_id = DBGMCU->IDCODE;
@@ -398,22 +402,25 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI
+                              |RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_DIV2;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 3;
-  RCC_OscInitStruct.PLL.PLLN = 60;
+  RCC_OscInitStruct.PLL.PLLN = 12;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 20;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -429,7 +436,7 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV2;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
@@ -628,7 +635,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x307075B1;
+  hi2c2.Init.Timing = 0x40000A0B;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -657,6 +664,42 @@ static void MX_I2C2_Init(void)
   /* USER CODE BEGIN I2C2_Init 2 */
 
   /* USER CODE END I2C2_Init 2 */
+
+}
+
+/**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
 
 }
 
@@ -1076,8 +1119,8 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
-	xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )MAX_10S_GPS, eSetBits, NULL);
+//	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+//	xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )MAX_10S_GPS, eSetBits, NULL);
 //	debug_print(gps_buffer, sizeof(gps_buffer) , dbg=INFO);
 }
 
@@ -1318,20 +1361,20 @@ void State_Machine(void *argument)
 {
   /* USER CODE BEGIN State_Machine */
 	// Calibrate ADC for better accuracy
-	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
-
-	while (!sensors_initialised) {
-		osDelay(10);
-	}
-
-	state_machine_fc.flight_state = IDLE_ON_PAD;
-	state_machine_fc.starting_altitude = ms5611_data.altitude;
-
-	// Check drogue continuity
-	state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
-
-	// Check main continuity
-	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+//	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
+//
+//	while (!sensors_initialised) {
+//		osDelay(10);
+//	}
+//
+//	state_machine_fc.flight_state = IDLE_ON_PAD;
+//	state_machine_fc.starting_altitude = ms5611_data.altitude;
+//
+//	// Check drogue continuity
+//	state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
+//
+//	// Check main continuity
+//	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
 
 	// Report E-match state
 	// TODO report ematch state over buzzer
@@ -1356,20 +1399,20 @@ void Sample_Sensors(void *argument)
 	sensors_initialised = false;
 
 	/* Init BMX055 */
-	if (!BMX055_init(&bmx055)) {
-//		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
-//				CRITICAL);
-	}
-	// Configure interrupts
-	BMX055_setInterrupts(&bmx055);
-
-	/* Init ASM330 */
-	if (ASM330_Init(&asm330)) {
-		// TODO: Handle error
-	}
-
-	/* Init GPS */
-	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+//	if (!BMX055_init(&bmx055)) {
+////		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
+////				CRITICAL);
+//	}
+//	// Configure interrupts
+//	BMX055_setInterrupts(&bmx055);
+//
+//	/* Init ASM330 */
+//	if (ASM330_Init(&asm330)) {
+//		// TODO: Handle error
+//	}
+//
+//	/* Init GPS */
+//	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
 
 	/* Enable interrupts */
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
@@ -1390,57 +1433,58 @@ void Sample_Sensors(void *argument)
 	/* Infinite loop */
 	for (;;) {
 		// Wait for sensors to be ready before running task
-		xTaskNotifyWait(0, 0, &sensor_type, (TickType_t) portMAX_DELAY);
+//		xTaskNotifyWait(0, 0, &sensor_type, (TickType_t) portMAX_DELAY);
 		/* Check each sensor each loop for new data */
-#ifndef RUN_HITL
-		// Check BMX055_Accel
-		if (sensor_type & BMX055_Accel) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel);
-			float accel_data[3];
-			BMX055_readAccel(&bmx055, accel_data);
-			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
-			ACCEL_ALPHA);
-		}
-		// Check BMX055_Gyro
-		if (sensor_type & BMX055_Gyro) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro);
-			float gyro_data[3];
-			BMX055_readGyro(&bmx055, gyro_data);
-			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
-			GYRO_ALPHA);
-		}
-		// Check BMX055_Mag
-		if (sensor_type & BMX055_Mag) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
-			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
-			break;
-		}
-		// Check asm330_Accel
-		if (sensor_type & ASM330_Accel) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Accel);
-			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
-				// TODO: Handle error
-			}
-		}
-		// Check asm330_Gyro
-		if (sensor_type & ASM330_Gyro) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Gyro);
-			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
-				// TODO: Handle error
-			}
-		}
-		// Check MAX_10S_GPS
-		if (sensor_type & MAX_10S_GPS) {
-			// Clear bits corresponding to this case
-			ulTaskNotifyValueClear(Sample_Sensors_Handle, MAX_10S_GPS);
-			parse_nmea(gps_data.gps_buffer);
-		}
-#endif
+//#ifndef RUN_HITL
+//		// Check BMX055_Accel
+//		if (sensor_type & BMX055_Accel) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel);
+//			float accel_data[3];
+//			BMX055_readAccel(&bmx055, accel_data);
+//			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
+//			ACCEL_ALPHA);
+//		}
+//		// Check BMX055_Gyro
+//		if (sensor_type & BMX055_Gyro) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro);
+//			float gyro_data[3];
+//			BMX055_readGyro(&bmx055, gyro_data);
+//			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
+//			GYRO_ALPHA);
+//		}
+//		// Check BMX055_Mag
+//		if (sensor_type & BMX055_Mag) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
+//			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+//			break;
+//		}
+//		// Check asm330_Accel
+//		if (sensor_type & ASM330_Accel) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Accel);
+//			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
+//				// TODO: Handle error
+//			}
+//		}
+//		// Check asm330_Gyro
+//		if (sensor_type & ASM330_Gyro) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Gyro);
+//			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
+//				// TODO: Handle error
+//			}
+//		}
+//		// Check MAX_10S_GPS
+//		if (sensor_type & MAX_10S_GPS) {
+//			// Clear bits corresponding to this case
+//			ulTaskNotifyValueClear(Sample_Sensors_Handle, MAX_10S_GPS);
+//			parse_nmea(gps_data.gps_buffer);
+//		}
+//#endif
+		osDelay(1000);
 	}
   /* USER CODE END Sample_Sensors */
 }
@@ -1486,24 +1530,24 @@ void Sample_Baro(void *argument)
 {
   /* USER CODE BEGIN Sample_Baro */
 	/* Init MS5611 */
-	if (!MS5611_init(&ms5611, osr)) {
-		// TODO: Handle error
-//		debug_print("[Main] MS5611 could not initialise\r\n",
-//				sizeof("[Main] MS5611 could not initialise\r\n"), dbg = ERR);
-	}
+//	if (!MS5611_init(&ms5611, osr)) {
+//		// TODO: Handle error
+////		debug_print("[Main] MS5611 could not initialise\r\n",
+////				sizeof("[Main] MS5611 could not initialise\r\n"), dbg = ERR);
+//	}
 	/* Infinite loop */
 	for (;;) {
-#ifndef RUN_HITL
-		// Read from baro
-		ms5611_data.pressure = (float) MS5611_readPressure(&ms5611, 1);
-//		ms5611_data.pressure = ms5611_data.pressure * BARO_ALPHA
-//				+ prev_pressure * (1 - BARO_ALPHA);
-//		prev_pressure = ms5611_data.pressure;
-		ms5611_data.altitude = (float) MS5611_getAltitude((double) ms5611_data.pressure, MS5611_BASELINE_PRESSURE);
-		ms5611_data.temperature = (float) MS5611_readTemperature(&ms5611, 1);
-//		ms5611_data.last_sample_time = ms5611_data.current_sample_time;
-//		ms5611_data.current_sample_time = micros(Micros_Timer);
-#endif
+//#ifndef RUN_HITL
+//		// Read from baro
+//		ms5611_data.pressure = (float) MS5611_readPressure(&ms5611, 1);
+////		ms5611_data.pressure = ms5611_data.pressure * BARO_ALPHA
+////				+ prev_pressure * (1 - BARO_ALPHA);
+////		prev_pressure = ms5611_data.pressure;
+//		ms5611_data.altitude = (float) MS5611_getAltitude((double) ms5611_data.pressure, MS5611_BASELINE_PRESSURE);
+//		ms5611_data.temperature = (float) MS5611_readTemperature(&ms5611, 1);
+////		ms5611_data.last_sample_time = ms5611_data.current_sample_time;
+////		ms5611_data.current_sample_time = micros(Micros_Timer);
+//#endif
 		osDelay(1);
 	}
   /* USER CODE END Sample_Baro */
@@ -1520,20 +1564,21 @@ void Data_Logging(void *argument)
 {
   /* USER CODE BEGIN Data_Logging */
 	// Initialise SD card
-	FRESULT res = SD_init();
-	if(res != FR_OK) {
-		// TODO: Handle error
-		SD_card.flash_good = false;
-	}
-	SD_card.flash_good = true;
-
-  /* Infinite loop */
-	TickType_t xLastWakeTime;
-	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)SD_card.log_frequency); // Number of ms to delay for
-	xLastWakeTime = xTaskGetTickCount();
+//	FRESULT res = SD_init();
+//	if(res != FR_OK) {
+//		// TODO: Handle error
+//		SD_card.flash_good = false;
+//	}
+//	SD_card.flash_good = true;
+//
+//  /* Infinite loop */
+//	TickType_t xLastWakeTime;
+//	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)SD_card.log_frequency); // Number of ms to delay for
+//	xLastWakeTime = xTaskGetTickCount();
   for(;;)
   {
-	  vTaskDelayUntil(&xLastWakeTime, xFrequency);
+	  osDelay(1000);
+//	  vTaskDelayUntil(&xLastWakeTime, xFrequency);
 	  // TODO: Add logging to SD card
   }
   /* USER CODE END Data_Logging */
@@ -1555,19 +1600,20 @@ void GPS_Tracker(void *argument)
 	xLastWakeTime = xTaskGetTickCount();
   for(;;)
   {
-	  if(gps_tracker.tracking_enabled) {
-		  vTaskDelayUntil(&xLastWakeTime, xFrequency);
-		  gps_tracking_packet gps_tracker_pkt = {
-				  .latitude  = minmea_tocoord(&gps.gga_frame.latitude),
-				  .longitude = minmea_tocoord(&gps.gga_frame.longitude),
-				  .altitude = minmea_tofloat(&gps.gga_frame.altitude),
-				  .satellites_tracked = gps.gga_frame.satellites_tracked,
-		  };
-		  send_rf_packet(GPS_TRACKING_PACKET, (uint8_t*)&gps_tracker_pkt, sizeof(gps_tracker_pkt));
-	  }
-	  else {
-		  osDelay(1000);
-	  }
+//	  if(gps_tracker.tracking_enabled) {
+//		  vTaskDelayUntil(&xLastWakeTime, xFrequency);
+//		  gps_tracking_packet gps_tracker_pkt = {
+//				  .latitude  = minmea_tocoord(&gps.gga_frame.latitude),
+//				  .longitude = minmea_tocoord(&gps.gga_frame.longitude),
+//				  .altitude = minmea_tofloat(&gps.gga_frame.altitude),
+//				  .satellites_tracked = gps.gga_frame.satellites_tracked,
+//		  };
+//		  send_rf_packet(GPS_TRACKING_PACKET, (uint8_t*)&gps_tracker_pkt, sizeof(gps_tracker_pkt));
+//	  }
+//	  else {
+//		  osDelay(1000);
+//	  }
+	  osDelay(1000);
 
   }
   /* USER CODE END GPS_Tracker */
@@ -1575,7 +1621,7 @@ void GPS_Tracker(void *argument)
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM1 interrupt took place, inside
+  * @note   This function is called  when TIM7 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -1586,13 +1632,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1) {
+  if (htim->Instance == TIM7) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-	else if(htim->Instance == TIM2) {
-		gps.gps_good = false;		// GPS timer elasped therefore, fix lost
-	}
+
   /* USER CODE END Callback 1 */
 }
 
