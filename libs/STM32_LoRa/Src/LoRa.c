@@ -35,9 +35,9 @@ LoRa newLoRa() {
  \* ----------------------------------------------------------------------------- */
 void LoRa_reset(LoRa *_LoRa) {
 	HAL_GPIO_WritePin(_LoRa->reset_port, _LoRa->reset_pin, GPIO_PIN_RESET);
-	osDelay(1);
+	HAL_Delay(1);
 	HAL_GPIO_WritePin(_LoRa->reset_port, _LoRa->reset_pin, GPIO_PIN_SET);
-	osDelay(100);
+	HAL_Delay(100);
 }
 
 /* ----------------------------------------------------------------------------- *\

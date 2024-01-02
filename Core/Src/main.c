@@ -95,7 +95,7 @@ const osThreadAttr_t State_Machine_T_attributes = {
 };
 /* Definitions for Sample_Sensors_ */
 osThreadId_t Sample_Sensors_Handle;
-uint32_t Sample_Sensors_Buffer[ 256 ];
+uint32_t Sample_Sensors_Buffer[ 2048 ];
 osStaticThreadDef_t Sample_Sensors_ControlBlock;
 const osThreadAttr_t Sample_Sensors__attributes = {
   .name = "Sample_Sensors_",
@@ -107,7 +107,7 @@ const osThreadAttr_t Sample_Sensors__attributes = {
 };
 /* Definitions for LoRa_Task */
 osThreadId_t LoRa_TaskHandle;
-uint32_t LoRa_TaskBuffer[ 256 ];
+uint32_t LoRa_TaskBuffer[ 1024 ];
 osStaticThreadDef_t LoRa_TaskControlBlock;
 const osThreadAttr_t LoRa_Task_attributes = {
   .name = "LoRa_Task",
@@ -119,7 +119,7 @@ const osThreadAttr_t LoRa_Task_attributes = {
 };
 /* Definitions for Sample_Baro_Tas */
 osThreadId_t Sample_Baro_TasHandle;
-uint32_t Sample_Baro_TasBuffer[ 512 ];
+uint32_t Sample_Baro_TasBuffer[ 1024 ];
 osStaticThreadDef_t Sample_Baro_TasControlBlock;
 const osThreadAttr_t Sample_Baro_Tas_attributes = {
   .name = "Sample_Baro_Tas",
@@ -143,7 +143,7 @@ const osThreadAttr_t Data_Logging_Ta_attributes = {
 };
 /* Definitions for GPS_Tracker_Tas */
 osThreadId_t GPS_Tracker_TasHandle;
-uint32_t GPS_Tracker_TasBuffer[ 128 ];
+uint32_t GPS_Tracker_TasBuffer[ 1024 ];
 osStaticThreadDef_t GPS_Tracker_TasControlBlock;
 const osThreadAttr_t GPS_Tracker_Tas_attributes = {
   .name = "GPS_Tracker_Tas",
@@ -418,9 +418,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 3;
-  RCC_OscInitStruct.PLL.PLLN = 12;
+  RCC_OscInitStruct.PLL.PLLN = 24;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -436,14 +436,14 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV2;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV4;
   RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -635,7 +635,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x40000A0B;
+  hi2c2.Init.Timing = 0x20303E5D;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
