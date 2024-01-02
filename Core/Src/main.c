@@ -1613,7 +1613,6 @@ void GPS_Tracker(void *argument)
 //	  else {
 //		  osDelay(1000);
 //	  }
-	  osDelay(1000);
 
   }
   /* USER CODE END GPS_Tracker */
