@@ -5,7 +5,7 @@
  *      Author: thean
  */
 
-#include "GPS.h"
+#include "gps.h"
 
 extern GPS_Handle gps;
 

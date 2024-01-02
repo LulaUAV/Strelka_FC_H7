@@ -103,7 +103,7 @@ const osThreadAttr_t Sample_Sensors__attributes = {
   .cb_size = sizeof(Sample_Sensors_ControlBlock),
   .stack_mem = &Sample_Sensors_Buffer[0],
   .stack_size = sizeof(Sample_Sensors_Buffer),
-  .priority = (osPriority_t) osPriorityRealtime,
+  .priority = (osPriority_t) osPriorityAboveNormal1,
 };
 /* Definitions for LoRa_Task */
 osThreadId_t LoRa_TaskHandle;
@@ -304,7 +304,7 @@ int main(void)
 
 	/* LoRa configurations */
 	LoRa_Handle = newLoRa();
-	LoRa_Handle.hSPIx = &hspi1;
+	LoRa_Handle.hSPIx = &hspi2;
 	LoRa_Handle.CS_port = SPI2_NSS5_GPIO_Port;
 	LoRa_Handle.CS_pin = SPI2_NSS5_Pin;
 	LoRa_Handle.reset_port = RESET_RF_GPIO_Port;
@@ -749,7 +749,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
@@ -797,7 +797,7 @@ static void MX_SPI2_Init(void)
   hspi2.Instance = SPI2;
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
@@ -845,7 +845,7 @@ static void MX_SPI4_Init(void)
   hspi4.Instance = SPI4;
   hspi4.Init.Mode = SPI_MODE_MASTER;
   hspi4.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi4.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi4.Init.NSS = SPI_NSS_HARD_OUTPUT;
@@ -1399,20 +1399,21 @@ void Sample_Sensors(void *argument)
 	sensors_initialised = false;
 
 	/* Init BMX055 */
-//	if (!BMX055_init(&bmx055)) {
-////		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
-////				CRITICAL);
-//	}
-//	// Configure interrupts
-//	BMX055_setInterrupts(&bmx055);
-//
-//	/* Init ASM330 */
-//	if (ASM330_Init(&asm330)) {
-//		// TODO: Handle error
-//	}
-//
-//	/* Init GPS */
-//	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+	if (!BMX055_init(&bmx055)) {
+//		debug_print("BMX055 FAILED\r\n", sizeof("BMX055 FAILED\r\n"), dbg =
+//				CRITICAL);
+		printf("Error");
+	}
+	// Configure interrupts
+	BMX055_setInterrupts(&bmx055);
+
+	/* Init ASM330 */
+	if (ASM330_Init(&asm330)) {
+		// TODO: Handle error
+	}
+
+	/* Init GPS */
+	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
 
 	/* Enable interrupts */
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
@@ -1504,6 +1505,7 @@ void LoRa_Radio(void *argument)
 	LoRa_setModulation(&LoRa_Handle, LORA_MODULATION);
 	if (LoRa_init(&LoRa_Handle) != LORA_OK) {
 		// Handle error
+		printf("some error");
 	}
 	LoRa_startReceiving(&LoRa_Handle);
 
@@ -1613,6 +1615,7 @@ void GPS_Tracker(void *argument)
 //	  else {
 //		  osDelay(1000);
 //	  }
+	  osDelay(1000);
 
   }
   /* USER CODE END GPS_Tracker */

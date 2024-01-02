@@ -605,6 +605,9 @@ uint16_t LoRa_init(LoRa *_LoRa) {
 
 	// Check modulation mode
 	read = LoRa_read(_LoRa, RegOpMode);
+	if(read == 0x00) {
+		return LORA_NOT_FOUND;
+	}
 	if ((read & 0x80) == 0x80)
 		_LoRa->modulationMode = LORA_MODULATION;
 	else {
