@@ -61,8 +61,6 @@ FDCAN_HandleTypeDef hfdcan1;
 
 I2C_HandleTypeDef hi2c2;
 
-RTC_HandleTypeDef hrtc;
-
 SD_HandleTypeDef hsd1;
 
 SPI_HandleTypeDef hspi1;
@@ -73,17 +71,23 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim13;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
+uint32_t defaultTaskBuffer[ 2048 ];
+osStaticThreadDef_t defaultTaskControlBlock;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .cb_mem = &defaultTaskControlBlock,
+  .cb_size = sizeof(defaultTaskControlBlock),
+  .stack_mem = &defaultTaskBuffer[0],
+  .stack_size = sizeof(defaultTaskBuffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for State_Machine_T */
 osThreadId_t State_Machine_THandle;
-uint32_t myTask02Buffer[ 1024 ];
+uint32_t myTask02Buffer[ 2048 ];
 osStaticThreadDef_t myTask02ControlBlock;
 const osThreadAttr_t State_Machine_T_attributes = {
   .name = "State_Machine_T",
@@ -103,11 +107,11 @@ const osThreadAttr_t Sample_Sensors__attributes = {
   .cb_size = sizeof(Sample_Sensors_ControlBlock),
   .stack_mem = &Sample_Sensors_Buffer[0],
   .stack_size = sizeof(Sample_Sensors_Buffer),
-  .priority = (osPriority_t) osPriorityAboveNormal1,
+  .priority = (osPriority_t) osPriorityRealtime,
 };
 /* Definitions for LoRa_Task */
 osThreadId_t LoRa_TaskHandle;
-uint32_t LoRa_TaskBuffer[ 1024 ];
+uint32_t LoRa_TaskBuffer[ 2048 ];
 osStaticThreadDef_t LoRa_TaskControlBlock;
 const osThreadAttr_t LoRa_Task_attributes = {
   .name = "LoRa_Task",
@@ -119,7 +123,7 @@ const osThreadAttr_t LoRa_Task_attributes = {
 };
 /* Definitions for Sample_Baro_Tas */
 osThreadId_t Sample_Baro_TasHandle;
-uint32_t Sample_Baro_TasBuffer[ 1024 ];
+uint32_t Sample_Baro_TasBuffer[ 2048 ];
 osStaticThreadDef_t Sample_Baro_TasControlBlock;
 const osThreadAttr_t Sample_Baro_Tas_attributes = {
   .name = "Sample_Baro_Tas",
@@ -131,7 +135,7 @@ const osThreadAttr_t Sample_Baro_Tas_attributes = {
 };
 /* Definitions for Data_Logging_Ta */
 osThreadId_t Data_Logging_TaHandle;
-uint32_t Data_Logging_TaBuffer[ 1024 ];
+uint32_t Data_Logging_TaBuffer[ 2048 ];
 osStaticThreadDef_t Data_Logging_TaControlBlock;
 const osThreadAttr_t Data_Logging_Ta_attributes = {
   .name = "Data_Logging_Ta",
@@ -143,7 +147,7 @@ const osThreadAttr_t Data_Logging_Ta_attributes = {
 };
 /* Definitions for GPS_Tracker_Tas */
 osThreadId_t GPS_Tracker_TasHandle;
-uint32_t GPS_Tracker_TasBuffer[ 1024 ];
+uint32_t GPS_Tracker_TasBuffer[ 2048 ];
 osStaticThreadDef_t GPS_Tracker_TasControlBlock;
 const osThreadAttr_t GPS_Tracker_Tas_attributes = {
   .name = "GPS_Tracker_Tas",
@@ -161,7 +165,7 @@ const osThreadAttr_t GPS_Tracker_Tas_attributes = {
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_FDCAN1_Init(void);
+static void MX_DMA_Init(void);
 static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
@@ -171,8 +175,8 @@ static void MX_ADC1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_CRC_Init(void);
+static void MX_FDCAN1_Init(void);
 static void MX_TIM13_Init(void);
-static void MX_RTC_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
 void Sample_Sensors(void *argument);
@@ -184,7 +188,6 @@ void GPS_Tracker(void *argument);
 /* USER CODE BEGIN PFP */
 enum debug_level dbg_level = INFO;
 enum debug_level dbg;
-
 
 BMX055_Handle bmx055 = { .hspi = &hspi2, .acc_CS_port = SPI2_NSS1_GPIO_Port, .acc_CS_pin = SPI2_NSS1_Pin, .acc_range = BMX055_ACC_RANGE_8, .acc_bandwidth = BMX055_ACC_PMU_BW_62_5, .gyro_CS_port = SPI2_NSS2_GPIO_Port, .gyro_CS_pin = SPI2_NSS2_Pin, .gyro_range = BMX055_GYRO_RANGE_32_8, .gyro_bandwidth = BMX055_GYRO_BW_64, .mag_CS_port = SPI2_NSS3_GPIO_Port, .mag_CS_pin = SPI2_NSS3_Pin, .mag_data_rate = BMX055_MAG_DATA_RATE_30,
 
@@ -201,7 +204,7 @@ MS5611_Handle ms5611 = { .hspi = &hspi4, .baro_CS_port = SPI4_NSS_GPIO_Port, .ba
 ms5611_osr_t osr = MS5611_ULTRA_HIGH_RES;
 SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 100 };
 ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
-Sensor_State sensor_state = { .asm330_acc_good = (bool*)&asm330.acc_good, .asm330_gyro_good = (bool*)&asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
+Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .transmit_gps = true, .sensor_state = &sensor_state, };
 GPS_Tracking_Handle gps_tracker = { .tracking_enabled = true, .chirp_frequency = 1 };
 
@@ -285,7 +288,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_FDCAN1_Init();
+  MX_DMA_Init();
   MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
@@ -296,9 +299,12 @@ int main(void)
   MX_FATFS_Init();
   MX_TIM2_Init();
   MX_CRC_Init();
+  MX_FDCAN1_Init();
   MX_TIM13_Init();
-  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+	// Used to ensure all priority grouping are pre-emption (no sub-priorities) so that CMSIS does not fault
+	NVIC_SetPriorityGrouping(0);
+
 	// Read device hardware ID
 	device_hardware_id = DBGMCU->IDCODE;
 
@@ -409,12 +415,10 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI
-                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV2;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 3;
@@ -668,42 +672,6 @@ static void MX_I2C2_Init(void)
 }
 
 /**
-  * @brief RTC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_RTC_Init(void)
-{
-
-  /* USER CODE BEGIN RTC_Init 0 */
-
-  /* USER CODE END RTC_Init 0 */
-
-  /* USER CODE BEGIN RTC_Init 1 */
-
-  /* USER CODE END RTC_Init 1 */
-
-  /** Initialize RTC Only
-  */
-  hrtc.Instance = RTC;
-  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
-  hrtc.Init.AsynchPrediv = 127;
-  hrtc.Init.SynchPrediv = 255;
-  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
-  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
-  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
-  hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
-  if (HAL_RTC_Init(&hrtc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN RTC_Init 2 */
-
-  /* USER CODE END RTC_Init 2 */
-
-}
-
-/**
   * @brief SDMMC1 Initialization Function
   * @param None
   * @retval None
@@ -848,8 +816,8 @@ static void MX_SPI4_Init(void)
   hspi4.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi4.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi4.Init.NSS = SPI_NSS_SOFT;
+  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -895,9 +863,9 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 120-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 4000000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
@@ -966,7 +934,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 9600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -995,6 +963,22 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 
 }
 
@@ -1028,11 +1012,11 @@ static void MX_GPIO_Init(void)
                           |MAIN_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, SPI2_NSS1_Pin|SPI2_NSS2_Pin|SPI2_NSS3_Pin|SPI2_NSS4_Pin
-                          |SPI2_NSS5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, SPI4_NSS_Pin|BUZZER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, SPI2_NSS1_Pin|SPI2_NSS2_Pin|SPI2_NSS3_Pin|SPI2_NSS4_Pin
+                          |SPI2_NSS5_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SD_Det_Pin */
   GPIO_InitStruct.Pin = SD_Det_Pin;
@@ -1069,6 +1053,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : SPI4_NSS_Pin BUZZER_Pin */
+  GPIO_InitStruct.Pin = SPI4_NSS_Pin|BUZZER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
   /*Configure GPIO pin : IO0_RF_Pin */
   GPIO_InitStruct.Pin = IO0_RF_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -1098,13 +1089,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : BUZZER_Pin */
-  GPIO_InitStruct.Pin = BUZZER_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
-
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
   HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
@@ -1119,8 +1103,8 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
-//	xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )MAX_10S_GPS, eSetBits, NULL);
+	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+	xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )MAX_10S_GPS, eSetBits, NULL);
 //	debug_print(gps_buffer, sizeof(gps_buffer) , dbg=INFO);
 }
 
@@ -1184,7 +1168,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	switch (identifier) {
 	case BAT_VOL_REQ:
 		bat_vol_res bat_vol_pkt = { .battery_voltage = 0 /* TODO: Add data here */};
-		send_rf_packet(BAT_VOL_RES, (uint8_t*)&bat_vol_pkt, sizeof(bat_vol_pkt));
+		send_rf_packet(BAT_VOL_RES, (uint8_t*) &bat_vol_pkt, sizeof(bat_vol_pkt));
 		break;
 	case CONTINUITY_REQ:
 		continuity_res cont_pkt;
@@ -1194,100 +1178,61 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
 		cont_pkt.drogue_ematch_state = state_machine_fc.drogue_ematch_state;
 		cont_pkt.main_ematch_state = state_machine_fc.main_ematch_state;
-		send_rf_packet(CONTINUITY_REQ, (uint8_t*)&cont_pkt, sizeof(cont_pkt));
+		send_rf_packet(CONTINUITY_REQ, (uint8_t*) &cont_pkt, sizeof(cont_pkt));
 		break;
 	case FIRE_DROGUE_REQ:
-		fire_drogue_res fire_drogue_pkt = {.result = 0};
+		fire_drogue_res fire_drogue_pkt = { .result = 0 };
 		deploy_drogue_parachute(DROGUE_H_GPIO_Port, DROGUE_L_GPIO_Port, DROGUE_H_Pin, DROGUE_L_Pin);
-		send_rf_packet(FIRE_DROGUE_RES, (uint8_t*)&fire_drogue_pkt, sizeof(fire_drogue_pkt));
+		send_rf_packet(FIRE_DROGUE_RES, (uint8_t*) &fire_drogue_pkt, sizeof(fire_drogue_pkt));
 		break;
 	case FIRE_MAIN_REQ:
-		fire_main_res fire_main_pkt = {.result = 0};
+		fire_main_res fire_main_pkt = { .result = 0 };
 		deploy_main_parachute(MAIN_H_GPIO_Port, MAIN_L_GPIO_Port, MAIN_H_Pin, MAIN_L_Pin);
-		send_rf_packet(FIRE_MAIN_RES, (uint8_t*)&fire_main_pkt, sizeof(fire_main_pkt));
+		send_rf_packet(FIRE_MAIN_RES, (uint8_t*) &fire_main_pkt, sizeof(fire_main_pkt));
 		break;
 	case GPS1_STATE_REQ:
-		gps1_state_res gps1_state_pkt = {
-				.gps_good = gps.gps_good,
-				.latitude = minmea_tocoord(&gps.gga_frame.latitude),
-				.longitude = minmea_tocoord(&gps.gga_frame.longitude),
-				.altitude = minmea_tofloat(&gps.gga_frame.altitude),
-		};
-		send_rf_packet(GPS1_STATE_RES, (uint8_t*)&gps1_state_pkt, sizeof(gps1_state_pkt));
+		gps1_state_res gps1_state_pkt = { .gps_good = gps.gps_good, .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), };
+		send_rf_packet(GPS1_STATE_RES, (uint8_t*) &gps1_state_pkt, sizeof(gps1_state_pkt));
 		break;
 	case GPS2_STATE_REQ:
 		break;
 	case ACCEL1_STATE_REQ:
-		accel1_state_res accel1_state_pkt = {
-				.acc_good = bmx055.acc_good,
-				.accX = bmx055_data.accel[0],
-				.accY = bmx055_data.accel[1],
-				.accZ = bmx055_data.accel[2],
-		};
-		send_rf_packet(ACCEL1_STATE_RES, (uint8_t*)&accel1_state_pkt, sizeof(accel1_state_pkt));
+		accel1_state_res accel1_state_pkt = { .acc_good = bmx055.acc_good, .accX = bmx055_data.accel[0], .accY = bmx055_data.accel[1], .accZ = bmx055_data.accel[2], };
+		send_rf_packet(ACCEL1_STATE_RES, (uint8_t*) &accel1_state_pkt, sizeof(accel1_state_pkt));
 		break;
 	case ACCEL2_STATE_REQ:
-		accel2_state_res accel2_state_pkt = {
-				.acc_good = asm330.acc_good,
-				.accX = asm330_data.accel[0],
-				.accY = asm330_data.accel[1],
-				.accZ = asm330_data.accel[2],
-		};
-		send_rf_packet(ACCEL2_STATE_RES, (uint8_t*)&accel2_state_pkt, sizeof(accel2_state_pkt));
+		accel2_state_res accel2_state_pkt = { .acc_good = asm330.acc_good, .accX = asm330_data.accel[0], .accY = asm330_data.accel[1], .accZ = asm330_data.accel[2], };
+		send_rf_packet(ACCEL2_STATE_RES, (uint8_t*) &accel2_state_pkt, sizeof(accel2_state_pkt));
 		break;
 	case GYRO1_STATE_REQ:
-		gyro1_state_res gyro1_state_pkt = {
-				.gyro_good = bmx055.gyro_good,
-				.gyroX = bmx055_data.gyro[0],
-				.gyroY = bmx055_data.gyro[1],
-				.gyroZ = bmx055_data.gyro[2],
-		};
-		send_rf_packet(GYRO1_STATE_RES, (uint8_t*)&gyro1_state_pkt, sizeof(gyro1_state_pkt));
+		gyro1_state_res gyro1_state_pkt = { .gyro_good = bmx055.gyro_good, .gyroX = bmx055_data.gyro[0], .gyroY = bmx055_data.gyro[1], .gyroZ = bmx055_data.gyro[2], };
+		send_rf_packet(GYRO1_STATE_RES, (uint8_t*) &gyro1_state_pkt, sizeof(gyro1_state_pkt));
 		break;
 	case GYRO2_STATE_REQ:
-		gyro2_state_res gyro2_state_pkt = {
-				.gyro_good = asm330.gyro_good,
-				.gyroX = asm330_data.gyro[0],
-				.gyroY = asm330_data.gyro[1],
-				.gyroZ = asm330_data.gyro[2],
-		};
-		send_rf_packet(GYRO2_STATE_RES, (uint8_t*)&gyro2_state_pkt, sizeof(gyro2_state_pkt));
+		gyro2_state_res gyro2_state_pkt = { .gyro_good = asm330.gyro_good, .gyroX = asm330_data.gyro[0], .gyroY = asm330_data.gyro[1], .gyroZ = asm330_data.gyro[2], };
+		send_rf_packet(GYRO2_STATE_RES, (uint8_t*) &gyro2_state_pkt, sizeof(gyro2_state_pkt));
 		break;
 	case MAG1_STATE_REQ:
-		mag1_state_res mag1_state_pkt = {
-				.mag_good = bmx055.mag_good,
-				.magX = bmx055_data.mag[0],
-				.magY = bmx055_data.mag[1],
-				.magZ = bmx055_data.mag[2],
-		};
-		send_rf_packet(MAG1_STATE_RES, (uint8_t*)&mag1_state_pkt, sizeof(mag1_state_pkt));
+		mag1_state_res mag1_state_pkt = { .mag_good = bmx055.mag_good, .magX = bmx055_data.mag[0], .magY = bmx055_data.mag[1], .magZ = bmx055_data.mag[2], };
+		send_rf_packet(MAG1_STATE_RES, (uint8_t*) &mag1_state_pkt, sizeof(mag1_state_pkt));
 		break;
 	case MAG2_STATE_REQ:
 		break;
 	case BARO1_STATE_REQ:
-		baro1_state_res baro1_state_pkt = {
-				.baro_good = ms5611.baro_good,
-				.pressure = ms5611_data.pressure,
-				.temperature = ms5611_data.temperature,
-				.altitude = ms5611_data.altitude,
-		};
-		send_rf_packet(BARO1_STATE_RES, (uint8_t*)&baro1_state_pkt, sizeof(baro1_state_pkt));
+		baro1_state_res baro1_state_pkt = { .baro_good = ms5611.baro_good, .pressure = ms5611_data.pressure, .temperature = ms5611_data.temperature, .altitude = ms5611_data.altitude, };
+		send_rf_packet(BARO1_STATE_RES, (uint8_t*) &baro1_state_pkt, sizeof(baro1_state_pkt));
 		break;
 	case BARO2_STATE_REQ:
 		break;
 	case FLASH_MEMORY_STATE_REQ:
 		float available_flash_memory_kB;
 		FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
-		if(res != FR_OK) {
+		if (res != FR_OK) {
 			SD_card.flash_good = false;
 			// TODO: Handle error
 		}
-		flash_state_res flash_state_pkt = {
-				.flash_good = SD_card.flash_good,
-				.write_speed = SD_card.log_frequency,
-				.available_space = available_flash_memory_kB,
-		};
-		send_rf_packet(FLASH_MEMORY_STATE_RES, (uint8_t*)&flash_state_pkt, sizeof(flash_state_pkt));
+		flash_state_res flash_state_pkt = { .flash_good = SD_card.flash_good, .write_speed = SD_card.log_frequency, .available_space = available_flash_memory_kB, };
+		send_rf_packet(FLASH_MEMORY_STATE_RES, (uint8_t*) &flash_state_pkt, sizeof(flash_state_pkt));
 		break;
 	case FLASH_MEMORY_CONFIG_SET:
 		flash_memory_config_set flash_memory_config;
@@ -1295,12 +1240,8 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		SD_card.log_frequency = flash_memory_config.write_speed;
 		break;
 	case GPS_TRACKING_CONFIG_REQ:
-		gps_tracking_config_res gps_tracking_config_pkt = {
-				.tracking_enabled = (uint8_t)gps_tracker.tracking_enabled,
-				.chirp_frequency = gps_tracker.chirp_frequency,
-				.gps_good = gps.gps_good,
-		};
-		send_rf_packet(GPS_TRACKING_CONFIG_RES, (uint8_t*)&gps_tracking_config_pkt, sizeof(gps_tracking_config_pkt));
+		gps_tracking_config_res gps_tracking_config_pkt = { .tracking_enabled = (uint8_t) gps_tracker.tracking_enabled, .chirp_frequency = gps_tracker.chirp_frequency, .gps_good = gps.gps_good, };
+		send_rf_packet(GPS_TRACKING_CONFIG_RES, (uint8_t*) &gps_tracking_config_pkt, sizeof(gps_tracking_config_pkt));
 		break;
 	case GPS_TRACKING_CONFIG_SET:
 		gps_tracking_config_set gps_tracking_config;
@@ -1311,7 +1252,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	}
 }
 
-void send_rf_packet(uint8_t identifier, uint8_t* payload_data, size_t len) {
+void send_rf_packet(uint8_t identifier, uint8_t *payload_data, size_t len) {
 	uint8_t *send_pkt = (uint8_t*) malloc(len + 13);
 	send_pkt[0] = identifier;
 	uint32_t sender_unique_id = device_hardware_id;
@@ -1320,10 +1261,11 @@ void send_rf_packet(uint8_t identifier, uint8_t* payload_data, size_t len) {
 	memcpy(&send_pkt[5], &receiver_unique_id, 4);
 	memcpy(&send_pkt[9], payload_data, len);
 	uint32_t crc32 = Calculate_CRC32(&hcrc, send_pkt, sizeof(send_pkt));
-	memcpy(&send_pkt[len+9], &crc32, 4);
+	memcpy(&send_pkt[len + 9], &crc32, 4);
 	uint8_t res = LoRa_transmit(&LoRa_Handle, send_pkt, sizeof(send_pkt), 1000);
-	if(res) {
+	if (res) {
 		// TODO: Handle LoRa timeout
+		printf("LoRa timed out");
 	}
 }
 
@@ -1375,10 +1317,8 @@ void State_Machine(void *argument)
 //
 //	// Check main continuity
 //	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
-
 	// Report E-match state
 	// TODO report ematch state over buzzer
-
 	/* Infinite loop */
 	for (;;) {
 		osDelay(1);
@@ -1413,7 +1353,7 @@ void Sample_Sensors(void *argument)
 	}
 
 	/* Init GPS */
-	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+	HAL_StatusTypeDef res = HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
 
 	/* Enable interrupts */
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
@@ -1434,58 +1374,56 @@ void Sample_Sensors(void *argument)
 	/* Infinite loop */
 	for (;;) {
 		// Wait for sensors to be ready before running task
-//		xTaskNotifyWait(0, 0, &sensor_type, (TickType_t) portMAX_DELAY);
+		xTaskNotifyWait(0, 0, &sensor_type, (TickType_t) portMAX_DELAY);
 		/* Check each sensor each loop for new data */
-//#ifndef RUN_HITL
-//		// Check BMX055_Accel
-//		if (sensor_type & BMX055_Accel) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel);
-//			float accel_data[3];
-//			BMX055_readAccel(&bmx055, accel_data);
-//			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
-//			ACCEL_ALPHA);
-//		}
-//		// Check BMX055_Gyro
-//		if (sensor_type & BMX055_Gyro) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro);
-//			float gyro_data[3];
-//			BMX055_readGyro(&bmx055, gyro_data);
-//			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
-//			GYRO_ALPHA);
-//		}
-//		// Check BMX055_Mag
-//		if (sensor_type & BMX055_Mag) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
-//			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
-//			break;
-//		}
-//		// Check asm330_Accel
-//		if (sensor_type & ASM330_Accel) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Accel);
-//			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
-//				// TODO: Handle error
-//			}
-//		}
-//		// Check asm330_Gyro
-//		if (sensor_type & ASM330_Gyro) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Gyro);
-//			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
-//				// TODO: Handle error
-//			}
-//		}
-//		// Check MAX_10S_GPS
-//		if (sensor_type & MAX_10S_GPS) {
-//			// Clear bits corresponding to this case
-//			ulTaskNotifyValueClear(Sample_Sensors_Handle, MAX_10S_GPS);
-//			parse_nmea(gps_data.gps_buffer);
-//		}
-//#endif
-		osDelay(1000);
+#ifndef RUN_HITL
+		// Check BMX055_Accel
+		if (sensor_type & BMX055_Accel) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Accel);
+			float accel_data[3];
+			BMX055_readAccel(&bmx055, accel_data);
+			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
+			ACCEL_ALPHA);
+		}
+		// Check BMX055_Gyro
+		if (sensor_type & BMX055_Gyro) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Gyro);
+			float gyro_data[3];
+			BMX055_readGyro(&bmx055, gyro_data);
+			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
+			GYRO_ALPHA);
+		}
+		// Check BMX055_Mag
+		if (sensor_type & BMX055_Mag) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
+			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+		}
+		// Check asm330_Accel
+		if (sensor_type & ASM330_Accel) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Accel);
+			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
+				// TODO: Handle error
+			}
+		}
+		// Check asm330_Gyro
+		if (sensor_type & ASM330_Gyro) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, ASM330_Gyro);
+			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
+				// TODO: Handle error
+			}
+		}
+		// Check MAX_10S_GPS
+		if (sensor_type & MAX_10S_GPS) {
+			// Clear bits corresponding to this case
+			ulTaskNotifyValueClear(Sample_Sensors_Handle, MAX_10S_GPS);
+			parse_nmea(gps_data.gps_buffer);
+		}
+#endif
 	}
   /* USER CODE END Sample_Sensors */
 }
@@ -1516,7 +1454,7 @@ void LoRa_Radio(void *argument)
 		uint8_t received_bytes = LoRa_received_bytes(&LoRa_Handle);
 		uint8_t rf_buffer[RF_MAX_PACKET_SIZE] = { 0 };
 		uint8_t bytes_read = LoRa_receive(&LoRa_Handle, rf_buffer, received_bytes);
-		handle_rf_rx_packet(rf_buffer, (size_t)bytes_read);
+		handle_rf_rx_packet(rf_buffer, (size_t) bytes_read);
 	}
   /* USER CODE END LoRa_Radio */
 }
@@ -1532,24 +1470,20 @@ void Sample_Baro(void *argument)
 {
   /* USER CODE BEGIN Sample_Baro */
 	/* Init MS5611 */
-//	if (!MS5611_init(&ms5611, osr)) {
-//		// TODO: Handle error
-////		debug_print("[Main] MS5611 could not initialise\r\n",
-////				sizeof("[Main] MS5611 could not initialise\r\n"), dbg = ERR);
-//	}
+	if (!MS5611_init(&ms5611, osr)) {
+		// TODO: Handle error
+//		debug_print("[Main] MS5611 could not initialise\r\n",
+//				sizeof("[Main] MS5611 could not initialise\r\n"), dbg = ERR);
+		printf("Error");
+	}
 	/* Infinite loop */
 	for (;;) {
-//#ifndef RUN_HITL
-//		// Read from baro
-//		ms5611_data.pressure = (float) MS5611_readPressure(&ms5611, 1);
-////		ms5611_data.pressure = ms5611_data.pressure * BARO_ALPHA
-////				+ prev_pressure * (1 - BARO_ALPHA);
-////		prev_pressure = ms5611_data.pressure;
-//		ms5611_data.altitude = (float) MS5611_getAltitude((double) ms5611_data.pressure, MS5611_BASELINE_PRESSURE);
-//		ms5611_data.temperature = (float) MS5611_readTemperature(&ms5611, 1);
-////		ms5611_data.last_sample_time = ms5611_data.current_sample_time;
-////		ms5611_data.current_sample_time = micros(Micros_Timer);
-//#endif
+#ifndef RUN_HITL
+		// Read from baro
+		ms5611_data.pressure = (float) MS5611_readPressure(&ms5611, 1);
+		ms5611_data.altitude = (float) MS5611_getAltitude((double) ms5611_data.pressure, MS5611_BASELINE_PRESSURE);
+		ms5611_data.temperature = (float) MS5611_readTemperature(&ms5611, 1);
+#endif
 		osDelay(1);
 	}
   /* USER CODE END Sample_Baro */
@@ -1557,10 +1491,10 @@ void Sample_Baro(void *argument)
 
 /* USER CODE BEGIN Header_Data_Logging */
 /**
-* @brief Function implementing the Data_Logging_Ta thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the Data_Logging_Ta thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_Data_Logging */
 void Data_Logging(void *argument)
 {
@@ -1577,47 +1511,44 @@ void Data_Logging(void *argument)
 //	TickType_t xLastWakeTime;
 //	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)SD_card.log_frequency); // Number of ms to delay for
 //	xLastWakeTime = xTaskGetTickCount();
-  for(;;)
-  {
-	  osDelay(1000);
+	for (;;) {
+		osDelay(1000);
 //	  vTaskDelayUntil(&xLastWakeTime, xFrequency);
-	  // TODO: Add logging to SD card
-  }
+		// TODO: Add logging to SD card
+	}
   /* USER CODE END Data_Logging */
 }
 
 /* USER CODE BEGIN Header_GPS_Tracker */
 /**
-* @brief Function implementing the GPS_Tracker_Tas thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the GPS_Tracker_Tas thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_GPS_Tracker */
 void GPS_Tracker(void *argument)
 {
   /* USER CODE BEGIN GPS_Tracker */
-  /* Infinite loop */
+	/* Infinite loop */
 	TickType_t xLastWakeTime;
-	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)gps_tracker.chirp_frequency); // Number of ms to delay for
+	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0 / (float )gps_tracker.chirp_frequency); // Number of ms to delay for
 	xLastWakeTime = xTaskGetTickCount();
-  for(;;)
-  {
-//	  if(gps_tracker.tracking_enabled) {
-//		  vTaskDelayUntil(&xLastWakeTime, xFrequency);
-//		  gps_tracking_packet gps_tracker_pkt = {
-//				  .latitude  = minmea_tocoord(&gps.gga_frame.latitude),
-//				  .longitude = minmea_tocoord(&gps.gga_frame.longitude),
-//				  .altitude = minmea_tofloat(&gps.gga_frame.altitude),
-//				  .satellites_tracked = gps.gga_frame.satellites_tracked,
-//		  };
-//		  send_rf_packet(GPS_TRACKING_PACKET, (uint8_t*)&gps_tracker_pkt, sizeof(gps_tracker_pkt));
-//	  }
-//	  else {
-//		  osDelay(1000);
-//	  }
-	  osDelay(1000);
 
-  }
+	// Reset GPS
+	HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
+	osDelay(100);
+	HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_SET);
+
+	for (;;) {
+		if (gps_tracker.tracking_enabled) {
+			vTaskDelayUntil(&xLastWakeTime, xFrequency);
+			gps_tracking_packet gps_tracker_pkt = { .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), .satellites_tracked = gps.gga_frame.satellites_tracked, };
+			send_rf_packet(GPS_TRACKING_PACKET, (uint8_t*) &gps_tracker_pkt, sizeof(gps_tracker_pkt));
+		} else {
+			osDelay(1000);
+		}
+
+	}
   /* USER CODE END GPS_Tracker */
 }
 
@@ -1632,6 +1563,11 @@ void GPS_Tracker(void *argument)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
+	// Timer elapsed therefore, GPS fix lost
+	if (htim->Instance == TIM2) {
+		gps.gps_good = false;
+		TIM2->CNT = 0;
+	}
 
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM7) {
