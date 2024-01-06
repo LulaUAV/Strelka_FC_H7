@@ -80,7 +80,7 @@
 #define FLASH_MEMORY_STATE_RES_PKT_LEN 0x00
 #define FLASH_MEMORY_CONFIG_SET_PKT_LEN 0x00
 #define GPS_TRACKING_CONFIG_RES_PKT_LEN 0x00
-#define GPS_TRACKING_CONFIG_SET_PKT_LEN 0x00
+#define GPS_TRACKING_CONFIG_SET_PKT_LEN 0x05
 #define GPS_TRACKING_PACKET_PKT_LEN 0x00
 
 typedef struct
@@ -205,7 +205,7 @@ typedef struct
 	float chirp_frequency;
 } gps_tracking_config_res;
 
-typedef struct
+typedef struct __attribute__((__packed__))
 {
 	uint8_t tracking_enabled;
 	float chirp_frequency;

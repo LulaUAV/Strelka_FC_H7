@@ -79,7 +79,7 @@ void LoRa_gotoMode(LoRa *_LoRa, int mode) {
 	}
 
 	LoRa_write(_LoRa, RegOpMode, data);
-	read = LoRa_read(_LoRa, RegOpMode);
+//	read = LoRa_read(_LoRa, RegOpMode);
 	HAL_Delay(10);
 }
 

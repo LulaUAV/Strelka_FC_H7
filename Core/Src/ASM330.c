@@ -23,6 +23,7 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 
 	CS_up_GPIO_Port = asm330->CS_GPIO_Port;
 	CS_up_Pin = asm330->CS_Pin;
+//	HAL_GPIO_WritePin(CS_up_GPIO_Port, CS_up_Pin, GPIO_PIN_SET);
 
 	asm330->dev_ctx.write_reg = platform_write;
 	asm330->dev_ctx.read_reg = platform_read;

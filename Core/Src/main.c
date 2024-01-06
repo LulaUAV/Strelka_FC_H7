@@ -143,7 +143,7 @@ const osThreadAttr_t Data_Logging_Ta_attributes = {
   .cb_size = sizeof(Data_Logging_TaControlBlock),
   .stack_mem = &Data_Logging_TaBuffer[0],
   .stack_size = sizeof(Data_Logging_TaBuffer),
-  .priority = (osPriority_t) osPriorityNormal2,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for GPS_Tracker_Tas */
 osThreadId_t GPS_Tracker_TasHandle;
@@ -166,7 +166,6 @@ void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-static void MX_SDMMC1_SD_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_SPI4_Init(void);
@@ -176,6 +175,7 @@ static void MX_I2C2_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_CRC_Init(void);
 static void MX_FDCAN1_Init(void);
+static void MX_SDMMC1_SD_Init(void);
 static void MX_TIM13_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
@@ -289,7 +289,6 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_SDMMC1_SD_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
   MX_SPI4_Init();
@@ -300,6 +299,7 @@ int main(void)
   MX_TIM2_Init();
   MX_CRC_Init();
   MX_FDCAN1_Init();
+  MX_SDMMC1_SD_Init();
   MX_TIM13_Init();
   /* USER CODE BEGIN 2 */
 	// Used to ensure all priority grouping are pre-emption (no sub-priorities) so that CMSIS does not fault
@@ -320,7 +320,7 @@ int main(void)
 
 	LoRa_Handle.frequency = 915;
 	LoRa_Handle.spredingFactor = SF_7;		 // default = SF_7
-	LoRa_Handle.bandWidth = BW_500KHz;		 // default = BW_125KHz
+	LoRa_Handle.bandWidth = BW_125KHz;		 // default = BW_125KHz
 	LoRa_Handle.crcRate = CR_4_5;			 // default = CR_4_5
 	LoRa_Handle.power = POWER_20db;			 // default = 20db
 	LoRa_Handle.overCurrentProtection = 100; // default = 100 mA
@@ -559,7 +559,7 @@ static void MX_CRC_Init(void)
   hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
   hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
   hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
-  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
   if (HAL_CRC_Init(&hcrc) != HAL_OK)
   {
     Error_Handler();
@@ -691,7 +691,7 @@ static void MX_SDMMC1_SD_Init(void)
   hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
   hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
   hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd1.Init.ClockDiv = 0;
+  hsd1.Init.ClockDiv = 2;
   /* USER CODE BEGIN SDMMC1_Init 2 */
 
   /* USER CODE END SDMMC1_Init 2 */
@@ -817,12 +817,12 @@ static void MX_SPI4_Init(void)
   hspi4.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi4.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi4.Init.NSS = SPI_NSS_SOFT;
-  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi4.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi4.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi4.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi4.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi4.Init.CRCPolynomial = 0x0;
-  hspi4.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi4.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   hspi4.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi4.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi4.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
@@ -1012,11 +1012,16 @@ static void MX_GPIO_Init(void)
                           |MAIN_L_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, SPI4_NSS_Pin|BUZZER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI4_NSS_GPIO_Port, SPI4_NSS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, SPI2_NSS1_Pin|SPI2_NSS2_Pin|SPI2_NSS3_Pin|SPI2_NSS4_Pin
-                          |SPI2_NSS5_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI2_NSS1_GPIO_Port, SPI2_NSS1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, SPI2_NSS2_Pin|SPI2_NSS3_Pin|SPI2_NSS4_Pin|SPI2_NSS5_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SD_Det_Pin */
   GPIO_InitStruct.Pin = SD_Det_Pin;
@@ -1053,12 +1058,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SPI4_NSS_Pin BUZZER_Pin */
-  GPIO_InitStruct.Pin = SPI4_NSS_Pin|BUZZER_Pin;
+  /*Configure GPIO pin : SPI4_NSS_Pin */
+  GPIO_InitStruct.Pin = SPI4_NSS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(SPI4_NSS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : IO0_RF_Pin */
   GPIO_InitStruct.Pin = IO0_RF_Pin;
@@ -1088,6 +1093,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BUZZER_Pin */
+  GPIO_InitStruct.Pin = BUZZER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BUZZER_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
@@ -1235,6 +1247,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		send_rf_packet(FLASH_MEMORY_STATE_RES, (uint8_t*) &flash_state_pkt, sizeof(flash_state_pkt));
 		break;
 	case FLASH_MEMORY_CONFIG_SET:
+		// TODO: Add input protection for bad inputs
 		flash_memory_config_set flash_memory_config;
 		memcpy(&flash_memory_config, payload_data, sizeof(flash_memory_config));
 		SD_card.log_frequency = flash_memory_config.write_speed;
@@ -1244,6 +1257,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		send_rf_packet(GPS_TRACKING_CONFIG_RES, (uint8_t*) &gps_tracking_config_pkt, sizeof(gps_tracking_config_pkt));
 		break;
 	case GPS_TRACKING_CONFIG_SET:
+		// TODO: Add input protection for bad inputs
 		gps_tracking_config_set gps_tracking_config;
 		memcpy(&gps_tracking_config, payload_data, sizeof(gps_tracking_config));
 		gps_tracker.tracking_enabled = gps_tracking_config.tracking_enabled;
@@ -1252,21 +1266,22 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	}
 }
 
-void send_rf_packet(uint8_t identifier, uint8_t *payload_data, size_t len) {
-	uint8_t *send_pkt = (uint8_t*) malloc(len + 13);
-	send_pkt[0] = identifier;
+void send_rf_packet(uint16_t identifier, uint8_t *payload_data, size_t len) {
+	uint8_t *send_pkt = (uint8_t*) malloc(len + 14);
+	memcpy(&send_pkt[0], &identifier, sizeof(identifier));
 	uint32_t sender_unique_id = device_hardware_id;
 	uint32_t receiver_unique_id = 0x00000000;		// Ground station ID
-	memcpy(&send_pkt[1], &sender_unique_id, 4);
-	memcpy(&send_pkt[5], &receiver_unique_id, 4);
-	memcpy(&send_pkt[9], payload_data, len);
-	uint32_t crc32 = Calculate_CRC32(&hcrc, send_pkt, sizeof(send_pkt));
-	memcpy(&send_pkt[len + 9], &crc32, 4);
-	uint8_t res = LoRa_transmit(&LoRa_Handle, send_pkt, sizeof(send_pkt), 1000);
+	memcpy(&send_pkt[2], &sender_unique_id, 4);
+	memcpy(&send_pkt[6], &receiver_unique_id, 4);
+	memcpy(&send_pkt[10], payload_data, len);
+	uint32_t crc32 = Calculate_CRC32(&hcrc, send_pkt, len + 14);
+	memcpy(&send_pkt[len + 10], &crc32, 4);
+	uint8_t res = LoRa_transmit(&LoRa_Handle, send_pkt, len + 14, 1000);
 	if (res) {
 		// TODO: Handle LoRa timeout
 		printf("LoRa timed out");
 	}
+	LoRa_startReceiving(&LoRa_Handle);
 }
 
 /****** Radio control packet handling END *****/
@@ -1350,6 +1365,7 @@ void Sample_Sensors(void *argument)
 	/* Init ASM330 */
 	if (ASM330_Init(&asm330)) {
 		// TODO: Handle error
+		printf("Error");
 	}
 
 	/* Init GPS */
@@ -1504,13 +1520,14 @@ void Data_Logging(void *argument)
 //	if(res != FR_OK) {
 //		// TODO: Handle error
 //		SD_card.flash_good = false;
+//		Error_Handler();
 //	}
 //	SD_card.flash_good = true;
-//
-//  /* Infinite loop */
-//	TickType_t xLastWakeTime;
-//	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)SD_card.log_frequency); // Number of ms to delay for
-//	xLastWakeTime = xTaskGetTickCount();
+
+  /* Infinite loop */
+	TickType_t xLastWakeTime;
+	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0/(float)SD_card.log_frequency); // Number of ms to delay for
+	xLastWakeTime = xTaskGetTickCount();
 	for (;;) {
 		osDelay(1000);
 //	  vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -1533,7 +1550,6 @@ void GPS_Tracker(void *argument)
 	TickType_t xLastWakeTime;
 	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0 / (float )gps_tracker.chirp_frequency); // Number of ms to delay for
 	xLastWakeTime = xTaskGetTickCount();
-
 	// Reset GPS
 	HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
 	osDelay(100);
