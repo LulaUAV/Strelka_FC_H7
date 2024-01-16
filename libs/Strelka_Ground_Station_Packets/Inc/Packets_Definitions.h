@@ -256,7 +256,7 @@ typedef struct
 	float packet_type_6_stream_frequency;
 	uint8_t packet_type_7_enable;
 	float packet_type_7_stream_frequency;
-} stream_packet_config;
+} stream_packet_config_set;
 
 typedef struct 
 {
