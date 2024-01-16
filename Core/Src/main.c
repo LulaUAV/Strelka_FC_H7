@@ -1147,8 +1147,7 @@ void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len) {
 		}
 
 		handle_payload_data(identifier, &Rx_buffer[11]);
-	}
-	else {
+	} else {
 		// Invalid protocol specified
 		return;
 	}
@@ -1264,8 +1263,11 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		gps_tracker.tracking_enabled = gps_tracking_config.tracking_enabled;
 		gps_tracker.chirp_frequency = gps_tracking_config.chirp_frequency;
 		break;
-	case
-
+	case STREAM_PKT_CONFIG_SET:
+		stream_packet_config stream_pkt_config;
+		memcpy(&stream_pkt_config, payload_data, sizeof(stream_pkt_config));
+		// TODO: Use data in config packet to change streaming settings
+		break;
 	}
 }
 
