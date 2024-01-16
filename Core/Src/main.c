@@ -1264,6 +1264,8 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		gps_tracker.tracking_enabled = gps_tracking_config.tracking_enabled;
 		gps_tracker.chirp_frequency = gps_tracking_config.chirp_frequency;
 		break;
+	case
+
 	}
 }
 
