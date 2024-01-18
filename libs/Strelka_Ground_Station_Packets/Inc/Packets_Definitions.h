@@ -270,7 +270,7 @@ typedef struct
 	float lin_accZ;
 	float lin_velX;
 	float lin_velY;
-	float lin_velX;
+	float lin_velZ;
 	float baro_altitude;
 	float ang_velX;
 	float ang_velY;

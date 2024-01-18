@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include "stm32h7xx_hal.h"
-#include "usbd_cdc_if.h"
+//#include "usbd_cdc_if.h"
 
 #define DEBUG_ENABLED			// Uncomment to enable debugging
 //#define USB_LOGGING				// Comment out DEBUG_ENABLED and uncomment USB_LOGGING to enable USB logging
