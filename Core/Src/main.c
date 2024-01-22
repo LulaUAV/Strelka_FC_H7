@@ -1189,9 +1189,9 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	case CONTINUITY_REQ:
 		continuity_res cont_pkt;
 		// Read drogue continuity
-		state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
+		state_machine_fc.drogue_ematch_state = 0; //test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);	TODO: Test this function
 		// Read main continuity
-		state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+		state_machine_fc.main_ematch_state = 0; //test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
 		cont_pkt.drogue_ematch_state = state_machine_fc.drogue_ematch_state;
 		cont_pkt.main_ematch_state = state_machine_fc.main_ematch_state;
 		send_rf_packet(CONTINUITY_REQ, (uint8_t*) &cont_pkt, sizeof(cont_pkt));
@@ -1207,7 +1207,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		send_rf_packet(FIRE_MAIN_RES, (uint8_t*) &fire_main_pkt, sizeof(fire_main_pkt));
 		break;
 	case GPS1_STATE_REQ:
-		gps1_state_res gps1_state_pkt = { .gps_good = gps.gps_good, .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), };
+		gps1_state_res gps1_state_pkt = { .gps_good = gps.gps_good, .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), .satellites_tracked = gps.gga_frame.satellites_tracked};
 		send_rf_packet(GPS1_STATE_RES, (uint8_t*) &gps1_state_pkt, sizeof(gps1_state_pkt));
 		break;
 	case GPS2_STATE_REQ:
@@ -1270,6 +1270,9 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	case STREAM_PKT_CONFIG_SET:
 		memcpy(&packet_streamer, payload_data, sizeof(packet_streamer));
 		break;
+	case STREAM_PACKET_CONFIG_REQ:
+		send_rf_packet(STREAM_PKT_CONFIG_RES, (uint8_t*) &packet_streamer, sizeof(packet_streamer));
+
 	}
 }
 
