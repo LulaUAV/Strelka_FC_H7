@@ -161,7 +161,7 @@ ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .C
 Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .transmit_gps = true, .sensor_state = &sensor_state, };
 GPS_Tracking_Handle gps_tracker = { .tracking_enabled = false, .chirp_frequency = 1 };
-stream_packet_config_set packet_streamer = { .packet_type_0_enable = false, .packet_type_0_stream_frequency = 0.0 };
+stream_packet_config_set packet_streamer = { .stream_packet_type_enabled = 0, .packet_stream_frequency = 0.0 };
 
 /* USER CODE END PFP */
 
@@ -1159,11 +1159,11 @@ uint8_t get_rf_payload_len(uint8_t identifier) {
 	switch (identifier) {
 	case FLASH_MEMORY_CONFIG_SET:
 		// TODO: Define this packet
-		return FLASH_MEMORY_CONFIG_SET_PKT_LEN;
+		return FLASH_MEMORY_CONFIG_SET_PACKET_LEN;
 	case GPS_TRACKING_CONFIG_SET:
-		return GPS_TRACKING_CONFIG_SET_PKT_LEN;
-	case STREAM_PKT_CONFIG_SET:
-		return STREAM_PKT_CONFIG_LEN;
+		return GPS_TRACKING_CONFIG_SET_PACKET_LEN;
+	case STREAM_PACKET_CONFIG_SET:
+		return STREAM_PACKET_CONFIG_LEN;
 	default:
 		return 0;
 	}
@@ -1197,45 +1197,45 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		send_rf_packet(CONTINUITY_REQ, (uint8_t*) &cont_pkt, sizeof(cont_pkt));
 		break;
 	case FIRE_DROGUE_REQ:
-		fire_drogue_res fire_drogue_pkt = { .result = 0 };
+		fire_drogue_res fire_drogue_pkt = { .fire_drogue_result = 0 };
 		deploy_drogue_parachute(DROGUE_H_GPIO_Port, DROGUE_L_GPIO_Port, DROGUE_H_Pin, DROGUE_L_Pin);
 		send_rf_packet(FIRE_DROGUE_RES, (uint8_t*) &fire_drogue_pkt, sizeof(fire_drogue_pkt));
 		break;
 	case FIRE_MAIN_REQ:
-		fire_main_res fire_main_pkt = { .result = 0 };
+		fire_main_res fire_main_pkt = { .fire_main_result = 0 };
 		deploy_main_parachute(MAIN_H_GPIO_Port, MAIN_L_GPIO_Port, MAIN_H_Pin, MAIN_L_Pin);
 		send_rf_packet(FIRE_MAIN_RES, (uint8_t*) &fire_main_pkt, sizeof(fire_main_pkt));
 		break;
 	case GPS1_STATE_REQ:
-		gps1_state_res gps1_state_pkt = { .gps_good = gps.gps_good, .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), .satellites_tracked = gps.gga_frame.satellites_tracked};
+		gps1_state_res gps1_state_pkt = { .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked };
 		send_rf_packet(GPS1_STATE_RES, (uint8_t*) &gps1_state_pkt, sizeof(gps1_state_pkt));
 		break;
 	case GPS2_STATE_REQ:
 		break;
 	case ACCEL1_STATE_REQ:
-		accel1_state_res accel1_state_pkt = { .acc_good = bmx055.acc_good, .accX = bmx055_data.accel[0], .accY = bmx055_data.accel[1], .accZ = bmx055_data.accel[2], };
+		accel1_state_res accel1_state_pkt = { .acc1_good = bmx055.acc_good, .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], };
 		send_rf_packet(ACCEL1_STATE_RES, (uint8_t*) &accel1_state_pkt, sizeof(accel1_state_pkt));
 		break;
 	case ACCEL2_STATE_REQ:
-		accel2_state_res accel2_state_pkt = { .acc_good = asm330.acc_good, .accX = asm330_data.accel[0], .accY = asm330_data.accel[1], .accZ = asm330_data.accel[2], };
+		accel2_state_res accel2_state_pkt = { .acc2_good = asm330.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[1], .acc2Z = asm330_data.accel[2], };
 		send_rf_packet(ACCEL2_STATE_RES, (uint8_t*) &accel2_state_pkt, sizeof(accel2_state_pkt));
 		break;
 	case GYRO1_STATE_REQ:
-		gyro1_state_res gyro1_state_pkt = { .gyro_good = bmx055.gyro_good, .gyroX = bmx055_data.gyro[0], .gyroY = bmx055_data.gyro[1], .gyroZ = bmx055_data.gyro[2], };
+		gyro1_state_res gyro1_state_pkt = { .gyro1_good = bmx055.gyro_good, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], };
 		send_rf_packet(GYRO1_STATE_RES, (uint8_t*) &gyro1_state_pkt, sizeof(gyro1_state_pkt));
 		break;
 	case GYRO2_STATE_REQ:
-		gyro2_state_res gyro2_state_pkt = { .gyro_good = asm330.gyro_good, .gyroX = asm330_data.gyro[0], .gyroY = asm330_data.gyro[1], .gyroZ = asm330_data.gyro[2], };
+		gyro2_state_res gyro2_state_pkt = { .gyro2_good = asm330.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], };
 		send_rf_packet(GYRO2_STATE_RES, (uint8_t*) &gyro2_state_pkt, sizeof(gyro2_state_pkt));
 		break;
 	case MAG1_STATE_REQ:
-		mag1_state_res mag1_state_pkt = { .mag_good = bmx055.mag_good, .magX = bmx055_data.mag[0], .magY = bmx055_data.mag[1], .magZ = bmx055_data.mag[2], };
+		mag1_state_res mag1_state_pkt = { .mag1_good = bmx055.mag_good, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], };
 		send_rf_packet(MAG1_STATE_RES, (uint8_t*) &mag1_state_pkt, sizeof(mag1_state_pkt));
 		break;
 	case MAG2_STATE_REQ:
 		break;
 	case BARO1_STATE_REQ:
-		baro1_state_res baro1_state_pkt = { .baro_good = ms5611.baro_good, .pressure = ms5611_data.pressure, .temperature = ms5611_data.temperature, .altitude = ms5611_data.altitude, };
+		baro1_state_res baro1_state_pkt = { .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .baro1_altitude = ms5611_data.altitude, };
 		send_rf_packet(BARO1_STATE_RES, (uint8_t*) &baro1_state_pkt, sizeof(baro1_state_pkt));
 		break;
 	case BARO2_STATE_REQ:
@@ -1247,32 +1247,57 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 			SD_card.flash_good = false;
 			// TODO: Handle error
 		}
-		flash_state_res flash_state_pkt = { .flash_good = SD_card.flash_good, .write_speed = SD_card.log_frequency, .available_space = available_flash_memory_kB, };
+		flash_state_res flash_state_pkt = { .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .available_flash_memory = available_flash_memory_kB, };
 		send_rf_packet(FLASH_MEMORY_STATE_RES, (uint8_t*) &flash_state_pkt, sizeof(flash_state_pkt));
 		break;
 	case FLASH_MEMORY_CONFIG_SET:
 		// TODO: Add input protection for bad inputs
 		flash_memory_config_set flash_memory_config;
 		memcpy(&flash_memory_config, payload_data, sizeof(flash_memory_config));
-		SD_card.log_frequency = flash_memory_config.write_speed;
+		// TODO: Add logging enabled
+		// SD_card.flash_logging_enabled = flash_memory_config.flash_logging_enabled;
+		SD_card.log_frequency = flash_memory_config.flash_write_speed;
 		break;
 	case GPS_TRACKING_CONFIG_REQ:
-		gps_tracking_config_res gps_tracking_config_pkt = { .tracking_enabled = (uint8_t) gps_tracker.tracking_enabled, .chirp_frequency = gps_tracker.chirp_frequency, .gps_good = gps.gps_good, };
+		gps_tracking_config_res gps_tracking_config_pkt = { .gps_tracking_enabled = (uint8_t) gps_tracker.tracking_enabled, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency};
 		send_rf_packet(GPS_TRACKING_CONFIG_RES, (uint8_t*) &gps_tracking_config_pkt, sizeof(gps_tracking_config_pkt));
 		break;
 	case GPS_TRACKING_CONFIG_SET:
 		// TODO: Add input protection for bad inputs
 		gps_tracking_config_set gps_tracking_config;
 		memcpy(&gps_tracking_config, payload_data, sizeof(gps_tracking_config));
-		gps_tracker.tracking_enabled = gps_tracking_config.tracking_enabled;
-		gps_tracker.chirp_frequency = gps_tracking_config.chirp_frequency;
+		gps_tracker.tracking_enabled = gps_tracking_config.gps_tracking_enabled;
+		gps_tracker.chirp_frequency = gps_tracking_config.gps_tracking_chirp_frequency;
 		break;
-	case STREAM_PKT_CONFIG_SET:
+	case STREAM_PACKET_CONFIG_SET:
 		memcpy(&packet_streamer, payload_data, sizeof(packet_streamer));
 		break;
 	case STREAM_PACKET_CONFIG_REQ:
-		send_rf_packet(STREAM_PKT_CONFIG_RES, (uint8_t*) &packet_streamer, sizeof(packet_streamer));
-
+		send_rf_packet(STREAM_PACKET_CONFIG_RES, (uint8_t*) &packet_streamer, sizeof(packet_streamer));
+		break;
+	case HEART_BEAT_CONFIG_PACKET_SET:
+		// TODO: Configure heart beat packet
+		break;
+	case ARM_DROGUE_REQ:
+		// TODO: Arm drogue
+		// TODO: Create condition on drogue fire with arming ARM MAIN AND DROGUE AT LAUNCH DETECTION
+		break;
+	case ARM_MAIN_REQ:
+		// TODO: Arm main
+		// TODO: create condition on main fire with arming ARM MAIN AND DROGUE AT LAUNCH DETECTION
+		break;
+	case SYSTEM_STATE_PACKET_REQ:
+		system_state_packet_req incoming_packet;
+		memcpy(&incoming_packet, payload_data, sizeof(incoming_packet));
+		switch (incoming_packet.state_packet_type) {
+		case 0:
+			float available_flash_memory_kB;
+			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
+			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = 0/*TODO*/, .arm_main_state = 0/*TODO*/, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = 0/*TODO*/, .drogue_ematch_state = 0/*TODO*/, .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = 0/*TODO*/, .stream_packet_type_enabled = 9/*TODO*/, .packet_stream_frequency = 0.0/*TODO*/, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
+			send_rf_packet(SYSTEM_STATE_PACKET_TYPE_0_RES, (uint8_t*) &response_packet, sizeof(response_packet));
+			break;
+		}
+		break;
 	}
 }
 
@@ -1478,7 +1503,7 @@ void LoRa_Radio(void *argument) {
 		uint8_t received_bytes = LoRa_received_bytes(&LoRa_Handle);
 		uint8_t rf_buffer[RF_MAX_PACKET_SIZE] = { 0 };
 		uint8_t bytes_read = LoRa_receive(&LoRa_Handle, rf_buffer, received_bytes);
-		if(bytes_read > 0) {
+		if (bytes_read > 0) {
 			handle_rf_rx_packet(rf_buffer, (size_t) bytes_read);
 			LoRa_startReceiving(&LoRa_Handle);
 		}
@@ -1566,14 +1591,14 @@ void GPS_Tracker(void *argument) {
 	for (;;) {
 		if (gps_tracker.tracking_enabled) {
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
-			gps_tracking_packet gps_tracker_pkt = { .latitude = minmea_tocoord(&gps.gga_frame.latitude), .longitude = minmea_tocoord(&gps.gga_frame.longitude), .altitude = minmea_tofloat(&gps.gga_frame.altitude), .satellites_tracked = gps.gga_frame.satellites_tracked, };
+			gps_tracking_packet gps_tracker_pkt = { .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, };
 			send_rf_packet(GPS_TRACKING_PACKET, (uint8_t*) &gps_tracker_pkt, sizeof(gps_tracker_pkt));
 
-		} else if (packet_streamer.packet_type_0_enable) {
+		} else if (packet_streamer.stream_packet_type_enabled == 0) {
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
 			float available_flash_memory_kB;
 			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
-			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .ang_velX = asm330_data.gyro[0], .ang_velY = asm330_data.gyro[1], .ang_velZ = asm330_data.gyro[2], .available_flash_kb = available_flash_memory_kB, .baro_altitude = ms5611_data.altitude, .battery_voltage = 0.0, .flight_state = 0, .gps_altitude = minmea_tofloat(&gps.gga_frame.altitude), .latitude = minmea_tocoord(&gps.gga_frame.latitude), .lin_accX = asm330_data.accel[0], .lin_accY = asm330_data.accel[1], .lin_accZ = asm330_data.accel[2], .lin_velX = 0, .lin_velY = 0, .lin_velZ = 0, .longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = 1, .quaternion_q2 = 0, .quaternion_q3 = 0, .quaternion_q4 = 0, .satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
+			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .gyro1X = asm330_data.gyro[0], .gyro1Y = asm330_data.gyro[1], .gyro1Z = asm330_data.gyro[2], .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .battery_voltage = 0.0, .flight_state = 0, .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .acc1X = asm330_data.accel[0], .acc1Y = asm330_data.accel[1], .acc1Z = asm330_data.accel[2], .velX = 0, .velY = 0, .velZ = 0, .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = 1, .quaternion_q2 = 0, .quaternion_q3 = 0, .quaternion_q4 = 0, .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
 			send_rf_packet(STREAM_PACKET_TYPE_0, (uint8_t*) &pkt_0, sizeof(pkt_0));
 		}
 
