@@ -46,7 +46,7 @@
 #define GPS_TRACKING_CONFIG_RES 0x20
 #define GPS_TRACKING_CONFIG_SET 0x21
 #define GPS_TRACKING_PACKET     0x22
-#define STREAM_PKT_CONFIG_SET   0x23
+#define STREAM_PACKET_CONFIG_SET   0x23
 #define STREAM_PACKET_TYPE_0    0x24
 #define STREAM_PACKET_TYPE_1    0x25
 #define STREAM_PACKET_TYPE_2    0x26
@@ -55,12 +55,8 @@
 #define STREAM_PACKET_TYPE_5    0x29
 #define STREAM_PACKET_TYPE_6    0x2A
 #define STREAM_PACKET_TYPE_7    0x2B
-<<<<<<< HEAD
-#define STREAM_PACKET_CONFIG_REQ 0x2C
-#define STREAM_PKT_CONFIG_RES	0x2D
-=======
-#define STREAM_PKT_CONFIG_REQ	0x2C
-#define STREAM_PKT_CONFIG_RES	0x2D
+#define STREAM_PACKET_CONFIG_REQ	0x2C
+#define STREAM_PACKET_CONFIG_RES	0x2D
 #define HEART_BEAT_CONFIG_PACKET_SET	0x2E
 #define HEART_BEAT_PACKET		0x2F
 #define ARM_DROGUE_REQ			0x30
@@ -76,45 +72,44 @@
 #define SYSTEM_STATE_PACKET_TYPE_5_RES		0x3A
 #define SYSTEM_STATE_PACKET_TYPE_6_RES		0x3B
 #define SYSTEM_STATE_PACKET_TYPE_7_RES		0x3C
->>>>>>> 917726cf4eb4318f7388d2d409aa95db4701f6aa
 
 
 /* Payload lengths */
-#define BAT_VOL_REQ_PKT_LEN 0x00
-#define BAT_VOL_RES_PKT_LEN 0x04
-#define CONTINUITY_REQ_PKT_LEN 0x00
-#define CONTINUITY _RES_PKT_LEN 0x02
-#define FIRE_DROGUE_REQ_PKT_LEN 0x00
-#define FIRE_DROGUE_RES_PKT_LEN 0x01
-#define FIRE_MAIN_REQ_PKT_LEN 0x00
-#define FIRE_MAIN_RES_PKT_LEN 0x01
-#define GPS1_STATE_REQ_PKT_LEN 0x00
-#define GPS1_STATE_RES_PKT_LEN 0x0E
-#define GPS2_STATE_REQ_PKT_LEN 0x00
-#define GPS2_STATE_RES_PKT_LEN 0x0E
-#define ACCEL1_STATE_REQ_PKT_LEN 0x00
-#define ACCEL1_STATE_RES_PKT_LEN 0x0D
-#define ACCEL2_STATE_REQ_PKT_LEN 0x00
-#define ACCEL2_STATE_RES_PKT_LEN 0x0D
-#define GYRO1_STATE_REQ_PKT_LEN 0x00
-#define GYRO1_STATE_RES_PKT_LEN 0x0D
-#define GYRO2_STATE_REQ_PKT_LEN 0x00
-#define GYRO2_STATE_RES_PKT_LEN 0x0D
-#define MAG1_STATE_REQ_PKT_LEN 0x00
-#define MAG1_STATE_RES_PKT_LEN 0x0D
-#define MAG2_STATE_REQ_PKT_LEN 0x00
-#define MAG2_STATE_RES_PKT_LEN 0x0D
-#define BARO1_STATE_REQ_PKT_LEN 0x00
-#define BARO1_STATE_RES_PKT_LEN 0x0D
-#define BARO2_STATE_REQ_PKT_LEN 0x00
-#define BARO2_STATE_RES_PKT_LEN 0x0D
-#define FLASH_MEMORY_STATE_REQ_PKT_LEN 0x00
-#define FLASH_MEMORY_STATE_RES_PKT_LEN 0x05
-#define FLASH_MEMORY_CONFIG_SET_PKT_LEN 0x00
-#define GPS_TRACKING_CONFIG_RES_PKT_LEN 0x05
-#define GPS_TRACKING_CONFIG_SET_PKT_LEN 0x05
-#define GPS_TRACKING_PACKET_PKT_LEN 0x0D
-#define STREAM_PKT_CONFIG_LEN 0x28
+#define BAT_VOL_REQ_PACKET_LEN 0x00
+#define BAT_VOL_RES_PACKET_LEN 0x04
+#define CONTINUITY_REQ_PACKET_LEN 0x00
+#define CONTINUITY _RES_PACKET_LEN 0x02
+#define FIRE_DROGUE_REQ_PACKET_LEN 0x00
+#define FIRE_DROGUE_RES_PACKET_LEN 0x01
+#define FIRE_MAIN_REQ_PACKET_LEN 0x00
+#define FIRE_MAIN_RES_PACKET_LEN 0x01
+#define GPS1_STATE_REQ_PACKET_LEN 0x00
+#define GPS1_STATE_RES_PACKET_LEN 0x0E
+#define GPS2_STATE_REQ_PACKET_LEN 0x00
+#define GPS2_STATE_RES_PACKET_LEN 0x0E
+#define ACCEL1_STATE_REQ_PACKET_LEN 0x00
+#define ACCEL1_STATE_RES_PACKET_LEN 0x0D
+#define ACCEL2_STATE_REQ_PACKET_LEN 0x00
+#define ACCEL2_STATE_RES_PACKET_LEN 0x0D
+#define GYRO1_STATE_REQ_PACKET_LEN 0x00
+#define GYRO1_STATE_RES_PACKET_LEN 0x0D
+#define GYRO2_STATE_REQ_PACKET_LEN 0x00
+#define GYRO2_STATE_RES_PACKET_LEN 0x0D
+#define MAG1_STATE_REQ_PACKET_LEN 0x00
+#define MAG1_STATE_RES_PACKET_LEN 0x0D
+#define MAG2_STATE_REQ_PACKET_LEN 0x00
+#define MAG2_STATE_RES_PACKET_LEN 0x0D
+#define BARO1_STATE_REQ_PACKET_LEN 0x00
+#define BARO1_STATE_RES_PACKET_LEN 0x0D
+#define BARO2_STATE_REQ_PACKET_LEN 0x00
+#define BARO2_STATE_RES_PACKET_LEN 0x0D
+#define FLASH_MEMORY_STATE_REQ_PACKET_LEN 0x00
+#define FLASH_MEMORY_STATE_RES_PACKET_LEN 0x05
+#define FLASH_MEMORY_CONFIG_SET_PACKET_LEN 0x00
+#define GPS_TRACKING_CONFIG_RES_PACKET_LEN 0x05
+#define GPS_TRACKING_CONFIG_SET_PACKET_LEN 0x05
+#define GPS_TRACKING_PACKET_PACKET_LEN 0x0D
+#define STREAM_PACKET_CONFIG_LEN 0x28
 #define STREAM_PACKET_TYPE_0_LEN 0x4E
 #define STREAM_PACKET_TYPE_1_LEN 0x00
 #define STREAM_PACKET_TYPE_2_LEN 0x00
@@ -123,8 +118,8 @@
 #define STREAM_PACKET_TYPE_5_LEN 0x00
 #define STREAM_PACKET_TYPE_6_LEN 0x00
 #define STREAM_PACKET_TYPE_7_LEN 0x00
-#define STREAM_PKT_CONFIG_REQ_LEN 0x00
-#define STREAM_PKT_CONFIG_RES_LEN 0x05
+#define STREAM_PACKET_CONFIG_REQ_LEN 0x00
+#define STREAM_PACKET_CONFIG_RES_LEN 0x05
 #define HEART_BEAT_CONFIG_PACKET_SET_LEN 0x05
 #define HEART_BEAT_PACKET_LEN 	0x00
 #define ARM_DROGUE_REQ_LEN 		0x01
@@ -436,37 +431,30 @@ typedef struct __attribute__((__packed__))
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_1_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_2_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_3_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_4_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_5_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_6_res;
 
 typedef struct __attribute__((__packed__)) 
 {
-	uint8_t state_packet_type;
 } stream_state_packet_type_7_res;
 
 #endif /* INC_PACKETS_H_ */
