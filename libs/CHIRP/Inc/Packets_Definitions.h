@@ -109,7 +109,7 @@
 #define GPS_TRACKING_CONFIG_RES_PACKET_LEN 0x05
 #define GPS_TRACKING_CONFIG_SET_PACKET_LEN 0x05
 #define GPS_TRACKING_PACKET_PACKET_LEN 0x0D
-#define STREAM_PACKET_CONFIG_LEN 0x28
+#define STREAM_PACKET_CONFIG_SET_LEN 0x05
 #define STREAM_PACKET_TYPE_0_LEN 0x4E
 #define STREAM_PACKET_TYPE_1_LEN 0x00
 #define STREAM_PACKET_TYPE_2_LEN 0x00
@@ -385,7 +385,7 @@ typedef struct __attribute__((__packed__))
 typedef struct __attribute__((__packed__)) 
 {
 	uint32_t timestamp;
-	uint32_t battery_voltage;
+	float battery_voltage;
 	uint8_t drogue_ematch_state;
 	uint8_t main_ematch_state;
 	uint8_t arm_drogue_state;
@@ -393,7 +393,7 @@ typedef struct __attribute__((__packed__))
 	uint8_t gps1_good;
 	float gps1_latitude;
 	float gps1_longitude;
-	float gps1_satellites_tracked;
+	uint8_t gps1_satellites_tracked;
 	uint8_t acc1_good;
 	float acc1X;
 	float acc1Y;
