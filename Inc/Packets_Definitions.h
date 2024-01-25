@@ -248,7 +248,7 @@ typedef struct __attribute__((__packed__))
 
 typedef struct __attribute__((__packed__))
 {
-	uint8_t flash_logging_enabled
+	uint8_t flash_logging_enabled;
 	float flash_write_speed;
 } flash_memory_config_set;
 
@@ -401,7 +401,7 @@ typedef struct __attribute__((__packed__))
 	uint8_t acc2_good;
 	float acc2X;
 	float acc2Y;
-	float acc2Z
+	float acc2Z;
 	uint8_t gyro1_good;
 	float gyro1X;
 	float gyro1Y;
