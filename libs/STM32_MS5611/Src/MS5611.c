@@ -24,7 +24,7 @@ bool MS5611_init(MS5611_Handle* ms5611, ms5611_osr_t osr) {
     	ms5611->baro_good = false;
     	return false;
     }
-
+    ms5611->baro_good = true;
     return true;
 }
 

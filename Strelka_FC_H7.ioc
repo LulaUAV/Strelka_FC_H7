@@ -1,11 +1,23 @@
 #MicroXplorer Configuration settings - do not modify
-ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_4
-ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,OffsetSignedSaturation-0\#ChannelRegularConversion,NbrOfConversionFlag,master
+ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_8
+ADC1.Channel-1\#ChannelRegularConversion=ADC_CHANNEL_9
+ADC1.Channel-2\#ChannelRegularConversion=ADC_CHANNEL_4
+ADC1.ContinuousConvMode=ENABLE
+ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,OffsetSignedSaturation-0\#ChannelRegularConversion,NbrOfConversionFlag,NbrOfConversion,Rank-1\#ChannelRegularConversion,Channel-1\#ChannelRegularConversion,SamplingTime-1\#ChannelRegularConversion,OffsetNumber-1\#ChannelRegularConversion,OffsetSignedSaturation-1\#ChannelRegularConversion,ContinuousConvMode,master,Rank-2\#ChannelRegularConversion,Channel-2\#ChannelRegularConversion,SamplingTime-2\#ChannelRegularConversion,OffsetNumber-2\#ChannelRegularConversion,OffsetSignedSaturation-2\#ChannelRegularConversion
+ADC1.NbrOfConversion=3
 ADC1.NbrOfConversionFlag=1
 ADC1.OffsetNumber-0\#ChannelRegularConversion=ADC_OFFSET_NONE
+ADC1.OffsetNumber-1\#ChannelRegularConversion=ADC_OFFSET_NONE
+ADC1.OffsetNumber-2\#ChannelRegularConversion=ADC_OFFSET_NONE
 ADC1.OffsetSignedSaturation-0\#ChannelRegularConversion=DISABLE
+ADC1.OffsetSignedSaturation-1\#ChannelRegularConversion=DISABLE
+ADC1.OffsetSignedSaturation-2\#ChannelRegularConversion=DISABLE
 ADC1.Rank-0\#ChannelRegularConversion=1
-ADC1.SamplingTime-0\#ChannelRegularConversion=ADC_SAMPLETIME_1CYCLE_5
+ADC1.Rank-1\#ChannelRegularConversion=2
+ADC1.Rank-2\#ChannelRegularConversion=3
+ADC1.SamplingTime-0\#ChannelRegularConversion=ADC_SAMPLETIME_64CYCLES_5
+ADC1.SamplingTime-1\#ChannelRegularConversion=ADC_SAMPLETIME_64CYCLES_5
+ADC1.SamplingTime-2\#ChannelRegularConversion=ADC_SAMPLETIME_810CYCLES_5
 ADC1.master=1
 CAD.formats=
 CAD.pinconfig=
