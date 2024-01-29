@@ -20,7 +20,7 @@ bool MS5611_init(MS5611_Handle* ms5611, ms5611_osr_t osr) {
     MS5611_readPROM(ms5611);
 
     // Check PROM address to check SPI bus is working
-    if(ms5611->fc[0] == 0xFF && ms5611->fc[1] == 0xFF && ms5611->fc[2] == 0xFF && ms5611->fc[3] == 0xFF) {
+    if(ms5611->fc[0] == 0xFFFF && ms5611->fc[1] == 0xFFFF && ms5611->fc[2] == 0xFFFF && ms5611->fc[3] == 0xFFFF) {
     	ms5611->baro_good = false;
     	return false;
     }
@@ -161,10 +161,10 @@ double MS5611_getSeaLevel(double pressure, double altitude) {
 
 // Read 16-bit from register (oops MSB, LSB)
 void MS5611_readRegister16(MS5611_Handle* ms5611, uint8_t register_addr, uint16_t* data) {
-    uint8_t read_data[3];
+    uint8_t read_data[30];
 
     HAL_GPIO_WritePin(ms5611->baro_CS_port, ms5611->baro_CS_pin, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(ms5611->hspi, &register_addr, &read_data[0], sizeof(read_data), 1000);
+    HAL_StatusTypeDef res = HAL_SPI_TransmitReceive(ms5611->hspi, &register_addr, &read_data[0], sizeof(read_data), 1000);
     HAL_GPIO_WritePin(ms5611->baro_CS_port, ms5611->baro_CS_pin, GPIO_PIN_SET);
 
     *data = read_data[1] << 8 | read_data[2];
