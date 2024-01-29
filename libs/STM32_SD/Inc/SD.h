@@ -17,6 +17,7 @@
 typedef struct {
 	float log_frequency;
 	bool flash_good;
+	bool flash_logging_enabled;
 } SD_Handle_t;
 
 extern SD_Handle_t SD_card;

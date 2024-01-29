@@ -21,6 +21,10 @@ typedef enum ematchState {
 	OPEN_CIRCUIT, SHORT_CIRCUIT, GOOD, EMATCH_ERROR
 } ematchState;
 
+typedef enum armState {
+	ARMED, DISARMED,
+} armState;
+
 /*
  * If defined, flight computer will use altitude threshold and gravity threshold
  * to detect launch. If using HPR where LAUNCH_ALT_THRESHOLD will be reached quickly,
@@ -80,6 +84,9 @@ typedef struct {
 	flightState flight_state;
 	ematchState drogue_ematch_state;
 	ematchState main_ematch_state;
+	armState drogue_arm_state;
+	armState main_arm_state;
+
 
 	uint32_t launch_time;
 	float starting_altitude;
