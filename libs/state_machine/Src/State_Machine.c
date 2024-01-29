@@ -204,12 +204,48 @@ ematchState test_continuity(ADC_HandleTypeDef *hadc, GPIO_TypeDef *L_port, uint1
 #define ADC_MAX_VALUE    ((1 << ADC_RESOLUTION) - 1)
 #define V_REF            3.3  // Replace with your ADC reference voltage
 
+// Battery voltage regression values
+#define NUM_POINTS 11
+#define NUM_COLS 2
+float battery_adc_voltage[NUM_POINTS][NUM_COLS] = {
+	{46042, 4.2},
+	{45572, 4.0},
+	{44922, 3.8},
+	{44231, 3.6},
+	{43428, 3.4},
+	{42580, 3.22},
+	{41691, 3.0},
+	{40633, 2.8},
+	{39312, 2.6},
+	{38028, 2.4}
+};
+
+float interpolateBatteryVoltage(float adc_value, float battery_adc_voltage[NUM_POINTS][NUM_COLS]) {
+	int idx=0;
+    // Find the two closest points for linear interpolation
+    for(idx=0; idx<NUM_POINTS-1; idx++) {
+    	if(battery_adc_voltage[idx][0] >= adc_value && battery_adc_voltage[idx+1][0]<= adc_value) {
+    		break;
+    	}
+    }
+
+    // Perform linear interpolation
+    float lower_adc = battery_adc_voltage[idx+1][0];
+    float upper_adc = battery_adc_voltage[idx][0];
+    float lower_voltage = battery_adc_voltage[idx+1][1];
+    float upper_voltage = battery_adc_voltage[idx][1];
+
+    float interpolated_voltage = lower_voltage +
+        ((upper_voltage - lower_voltage) / (upper_adc - lower_adc)) * (adc_value - lower_adc);
+
+    return interpolated_voltage;
+}
+
 float convertToVoltage(uint16_t adcValue) {
-    return (adcValue / (float)ADC_MAX_VALUE) * V_REF;
+	return (adcValue / (float) ADC_MAX_VALUE) * V_REF;
 }
 
 float calculateBatteryVoltage(ADC_HandleTypeDef *hadc) {
-	ematchState state;
 	HAL_StatusTypeDef res;
 
 	ADC_ChannelConfTypeDef sConfig = { 0 };
@@ -217,11 +253,7 @@ float calculateBatteryVoltage(ADC_HandleTypeDef *hadc) {
 	 */
 	sConfig.Channel = ADC_CHANNEL_4;
 	sConfig.Rank = ADC_REGULAR_RANK_3;
-	sConfig.SamplingTime = ADC_SAMPLETIME_64CYCLES_5;
-	sConfig.SingleDiff = ADC_SINGLE_ENDED;
-	sConfig.OffsetNumber = ADC_OFFSET_NONE;
-	sConfig.Offset = 0;
-	sConfig.OffsetSignedSaturation = DISABLE;
+	sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
 	if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK) {
 		Error_Handler();
 	}
@@ -238,5 +270,5 @@ float calculateBatteryVoltage(ADC_HandleTypeDef *hadc) {
 	HAL_ADC_Stop(hadc);
 
 	// Convert 16 bit value to voltage and scale by voltage divider ratio
-	return convertToVoltage(AD_RES) * 1.275696;
+	return interpolateBatteryVoltage(AD_RES, battery_adc_voltage);
 }
