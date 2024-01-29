@@ -502,11 +502,11 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_16B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfConversion = 3;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -529,13 +529,32 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Channel = ADC_CHANNEL_8;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_64CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
   sConfig.OffsetSignedSaturation = DISABLE;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -1205,6 +1224,12 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void Non_Blocking_Error_Handler() {
+	while(1) {
+		osDelay(1000);
+	}
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
 	xTaskNotifyFromISR(Sample_Sensors_Handle, (uint32_t )MAX_10S_GPS, eSetBits, NULL);
@@ -1291,15 +1316,15 @@ uint32_t Calculate_CRC32(CRC_HandleTypeDef *hcrc, uint8_t *payload_data, size_t 
 void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 	switch (identifier) {
 	case BAT_VOL_REQ:
-		bat_vol_res bat_vol_pkt = { .battery_voltage = 0 /* TODO: Add data here */};
+		bat_vol_res bat_vol_pkt = { .battery_voltage = calculateBatteryVoltage(&hadc1)};
 		send_rf_packet(BAT_VOL_RES, (uint8_t*) &bat_vol_pkt, sizeof(bat_vol_pkt));
 		break;
 	case CONTINUITY_REQ:
 		continuity_res cont_pkt;
 		// Read drogue continuity
-		state_machine_fc.drogue_ematch_state = 0; //test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);	TODO: Test this function
+		state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8);
 		// Read main continuity
-		state_machine_fc.main_ematch_state = 0; //test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+		state_machine_fc.main_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_9);
 		cont_pkt.drogue_ematch_state = state_machine_fc.drogue_ematch_state;
 		cont_pkt.main_ematch_state = state_machine_fc.main_ematch_state;
 		send_rf_packet(CONTINUITY_REQ, (uint8_t*) &cont_pkt, sizeof(cont_pkt));
@@ -1407,7 +1432,7 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		case 0:
 			float available_flash_memory_kB;
 			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
-			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = 0/*TODO*/, .arm_main_state = 0/*TODO*/, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = 0/*TODO*/, .drogue_ematch_state = 0/*TODO*/, .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = 0/*TODO*/, .stream_packet_type_enabled = 9/*TODO*/, .packet_stream_frequency = 0.0/*TODO*/, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
+			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = 0/*TODO*/, .arm_main_state = 0/*TODO*/, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = calculateBatteryVoltage(&hadc1), .drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8), .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_9), .stream_packet_type_enabled = 9/*TODO*/, .packet_stream_frequency = 0.0/*TODO*/, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
 			send_rf_packet(SYSTEM_STATE_PACKET_TYPE_0_RES, (uint8_t*) &response_packet, sizeof(response_packet));
 			break;
 		}
@@ -1469,20 +1494,22 @@ void State_Machine(void *argument)
 {
   /* USER CODE BEGIN State_Machine */
 	// Calibrate ADC for better accuracy
-//	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
-//
-//	while (!sensors_initialised) {
-//		osDelay(10);
-//	}
-//
-//	state_machine_fc.flight_state = IDLE_ON_PAD;
-//	state_machine_fc.starting_altitude = ms5611_data.altitude;
-//
-//	// Check drogue continuity
-//	state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin);
-//
-//	// Check main continuity
-//	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin);
+	HAL_ADCEx_Calibration_Start(&hadc1, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
+
+	while (!sensors_initialised) {
+		osDelay(10);
+	}
+
+	float battery_voltage = calculateBatteryVoltage(&hadc1);
+
+	state_machine_fc.flight_state = IDLE_ON_PAD;
+	state_machine_fc.starting_altitude = ms5611_data.altitude;
+
+	// Check drogue continuity
+	state_machine_fc.drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8);
+
+	// Check main continuity
+	state_machine_fc.main_ematch_state = test_continuity(&hadc1, MAIN_L_GPIO_Port, MAIN_L_Pin, ADC_CHANNEL_9);
 	// Report E-match state
 	// TODO report ematch state over buzzer
 	/* Infinite loop */
@@ -1515,8 +1542,12 @@ void Sample_Sensors(void *argument)
 
 	/* Init ASM330 */
 	if (ASM330_Init(&asm330)) {
-		// TODO: Handle error
-		printf("Error");
+		Non_Blocking_Error_Handler();
+	}
+
+	/* Init MS5611 */
+	if (!MS5611_init(&ms5611, osr)) {
+		Non_Blocking_Error_Handler();
 	}
 
 	/* Init GPS */
@@ -1534,7 +1565,9 @@ void Sample_Sensors(void *argument)
 	// Check critical sensors
 	if ((bmx055.acc_good == false && asm330.acc_good == false) || ms5611.baro_good == false) {
 		// Alert critical sensor error code
+		Error_Handler();
 	}
+	sensors_initialised = true;
 
 	// Sensor type that is ready when task is released
 	uint32_t sensor_type;
@@ -1609,8 +1642,7 @@ void LoRa_Radio(void *argument)
 	LoRa_reset(&LoRa_Handle);
 	LoRa_setModulation(&LoRa_Handle, LORA_MODULATION);
 	if (LoRa_init(&LoRa_Handle) != LORA_OK) {
-		// Handle error
-		printf("some error");
+		Non_Blocking_Error_Handler();
 	}
 	LoRa_startReceiving(&LoRa_Handle);
 
@@ -1640,11 +1672,9 @@ void Sample_Baro(void *argument)
 {
   /* USER CODE BEGIN Sample_Baro */
 	/* Init MS5611 */
-	if (!MS5611_init(&ms5611, osr)) {
-		// TODO: Handle error
-//		debug_print("[Main] MS5611 could not initialise\r\n",
-//				sizeof("[Main] MS5611 could not initialise\r\n"), dbg = ERR);
-		printf("Error");
+	// Wait until barometer is initialised
+	while(!ms5611.baro_good) {
+		osDelay(10);
 	}
 	/* Infinite loop */
 	for (;;) {
@@ -1674,7 +1704,7 @@ void Data_Logging(void *argument)
 	if (res != FR_OK) {
 		// TODO: Handle error
 		SD_card.flash_good = false;
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	SD_card.flash_good = true;
 
@@ -1722,7 +1752,7 @@ void GPS_Tracker(void *argument)
 			vTaskDelayUntil(&xStreamPacketLastWakeTime, xStreamPacketTransmitFrequency);
 			float available_flash_memory_kB;
 			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
-			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .gyro1X = asm330_data.gyro[0], .gyro1Y = asm330_data.gyro[1], .gyro1Z = asm330_data.gyro[2], .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .battery_voltage = 0.0, .flight_state = 0, .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .acc1X = asm330_data.accel[0], .acc1Y = asm330_data.accel[1], .acc1Z = asm330_data.accel[2], .velX = 0, .velY = 0, .velZ = 0, .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = 1, .quaternion_q2 = 0, .quaternion_q3 = 0, .quaternion_q4 = 0, .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
+			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .gyro1X = asm330_data.gyro[0], .gyro1Y = asm330_data.gyro[1], .gyro1Z = asm330_data.gyro[2], .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .battery_voltage = calculateBatteryVoltage(&hadc1), .flight_state = 0, .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .acc1X = asm330_data.accel[0], .acc1Y = asm330_data.accel[1], .acc1Z = asm330_data.accel[2], .velX = 0, .velY = 0, .velZ = 0, .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = 1, .quaternion_q2 = 0, .quaternion_q3 = 0, .quaternion_q4 = 0, .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS };
 			send_rf_packet(STREAM_PACKET_TYPE_0, (uint8_t*) &pkt_0, sizeof(pkt_0));
 		}
 

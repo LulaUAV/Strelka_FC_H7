@@ -105,8 +105,9 @@ void fill_median_filter_buffer(float data_point, size_t idx);
 bool detect_landing(float* current_vertical_velocity, float* previous_vertical_velocity);
 void deploy_drogue_parachute(GPIO_TypeDef* H_port, GPIO_TypeDef* L_port, uint16_t H_pin, uint16_t L_pin);
 void deploy_main_parachute(GPIO_TypeDef* H_port, GPIO_TypeDef* L_port, uint16_t H_pin, uint16_t L_pin);
-ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint16_t L_pin);
+ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint16_t L_pin, uint32_t adcChannel);
 int compare(const void *a, const void *b);
 float calculateMedian(float arr[], size_t n);
+float calculateBatteryVoltage(ADC_HandleTypeDef* hadc);
 
 #endif /* INC_STATE_MACHINE_H_ */
