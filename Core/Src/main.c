@@ -336,6 +336,10 @@ int main(void)
 
 	HAL_GPIO_WritePin(SPI2_NSS5_GPIO_Port, SPI2_NSS5_Pin, GPIO_PIN_SET);
 
+	if (HAL_TIM_Base_Start(&htim5) != HAL_OK) {
+		Non_Blocking_Error_Handler();
+	}
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -725,7 +729,7 @@ static void MX_SDMMC1_SD_Init(void)
   hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
   hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
   hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd1.Init.ClockDiv = 6;
+  hsd1.Init.ClockDiv = 8;
   /* USER CODE BEGIN SDMMC1_Init 2 */
 
   /* USER CODE END SDMMC1_Init 2 */
@@ -1820,34 +1824,17 @@ void Data_Logging(void *argument)
 		Non_Blocking_Error_Handler();
 	}
 	SD_card.flash_good = true;
+	SD_write_headers();
+
+	while (!sensors_initialised) {
+		osDelay(10);
+	}
 
 	/* Infinite loop */
 	TickType_t xLastWakeTime;
 	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0 / (float )SD_card.log_frequency); // Number of ms to delay for
 	xLastWakeTime = xTaskGetTickCount();
 	for (;;) {
-		/*
-		 * Strelka will default to high speed MMC speed. If a usb is connected, it will decrease its speed to
-		 * 12MHz to allow ubs data transfer from mass storage. It will not return to full speed until it is rebooted
-		 */
-		// Check if USB is connected
-		if (hUsbDeviceFS.dev_state != USBD_STATE_DEFAULT || hUsbDeviceFS.dev_state != 0) {
-			if (hsd1.Init.ClockDiv != 6) {
-				// Slow SDMMC speed to USB FS speed of 12.5 MHz
-				hsd1.Init.ClockDiv = 6;
-				uint8_t sd_state = HAL_SD_Init(&hsd1);
-				// Disable logging when USB is connected
-				SD_card.flash_logging_enabled = false;
-			}
-
-		} else {
-			if (hsd1.Init.ClockDiv != 2) {
-				// Run the SDMMC at max speed of 37.5 MHz
-				hsd1.Init.ClockDiv = 2;
-				uint8_t sd_state = HAL_SD_Init(&hsd1);
-				printf("tetetet");
-			}
-		}
 		if (SD_card.flash_logging_enabled) {
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
 			SD_write_accelerometer_data(micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
@@ -1857,7 +1844,7 @@ void Data_Logging(void *argument)
 			struct tm tstamp;
 			minmea_getdatetime(&tstamp, &gps.zda_frame.date, &gps.zda_frame.time);
 			SD_write_GPS_data(micros(), tstamp.tm_hour, tstamp.tm_min, tstamp.tm_sec, tstamp.tm_mday, tstamp.tm_mon, tstamp.tm_year, gps.zda_frame.hour_offset, gps.zda_frame.minute_offset, minmea_tocoord(&gps.gga_frame.latitude), minmea_tocoord(&gps.gga_frame.longitude), minmea_tofloat(&gps.gga_frame.altitude), gps.gga_frame.fix_quality, gps.gga_frame.satellites_tracked);
-			SD_write_system_state_data(micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, state_machine_fc.battery_voltage);
+			SD_write_system_state_data(micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, calculateBatteryVoltage(&hadc1));
 		} else {
 			osDelay(100);
 		}
