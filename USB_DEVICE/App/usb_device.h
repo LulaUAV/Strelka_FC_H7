@@ -32,7 +32,7 @@
 #include "usbd_def.h"
 
 /* USER CODE BEGIN INCLUDE */
-
+ extern USBD_HandleTypeDef hUsbDeviceFS;
 /* USER CODE END INCLUDE */
 
 /** @addtogroup USBD_OTG_DRIVER

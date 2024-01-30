@@ -18,7 +18,6 @@ char ekfDir[] = "ekf.csv";
 char streamDir[] = "stream.dat";
 const TickType_t xFrequency;
 
-
 FRESULT SD_init() {
 	/* Flash memory file system config */
 	uint8_t rtext[_MAX_SS];/* File read buffer */
@@ -75,7 +74,7 @@ FRESULT SD_write_headers() {
 	if (res != FR_OK) {
 		Error_Handler();
 	}
-	uint8_t accel_header[] = "timestamp,accX,accY,accZ\n";
+	uint8_t accel_header[] = "timestamp(uS),acc1X(g),acc1Y(g),acc1Z(g),acc2X(g),acc2Y(g),acc2Z(g)\n";
 	res = f_write(&SDFile, accel_header, sizeof(accel_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -92,7 +91,7 @@ FRESULT SD_write_headers() {
 	if (res != FR_OK) {
 		Error_Handler();
 	}
-	char gyro_header[] = "timestamp,gyroX,gyroY,gyroZ\n";
+	char gyro_header[] = "timestamp(uS),gyro1X(rad/s),gyro1Y(rad/s),gyro1Z(rad/s),gyro2X(rad/s),gyro2Y(rad/s),gyro2Z(rad/s)\n";
 	res = f_write(&SDFile, gyro_header, sizeof(gyro_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -109,7 +108,7 @@ FRESULT SD_write_headers() {
 	if (res != FR_OK) {
 		Error_Handler();
 	}
-	char mag_header[] = "timestamp,magX,magY,magZ\n";
+	char mag_header[] = "timestamp(uS),magX(uT),magY(uT),magZ(uT)\n";
 	res = f_write(&SDFile, mag_header, sizeof(mag_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -126,7 +125,7 @@ FRESULT SD_write_headers() {
 	if (res != FR_OK) {
 		Error_Handler();
 	}
-	char baro_header[] = "timestamp,altitude,pressure,temperature\n";
+	char baro_header[] = "timestamp(uS),altitude(m),pressure(Pa),temperature(degC)\n";
 	res = f_write(&SDFile, baro_header, sizeof(baro_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -137,10 +136,26 @@ FRESULT SD_write_headers() {
 	}
 	osDelay(10);
 
+	sprintf(fname, "%s/%s", directory_name, systemStateDir);
+	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
+	osDelay(10);
+	if (res != FR_OK) {
+		Error_Handler();
+	}
+	char sys_header[] = "timestamp(uS),flight state,drogue ematch status,main ematch status,launch time (mS),drogue deploy time (mS),drogue deploy altitude(m),main deploy time(ms),main deploy altitude(m),landing time(ms), landing altitude(m),battery voltage (V)\n";
+	res = f_write(&SDFile, sys_header, sizeof(sys_header), (void*) &byteswritten);
+
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Error_Handler();
+	} else {
+
+		f_close(&SDFile);
+	}
+	osDelay(10);
 	return res;
 }
 
-FRESULT SD_write_accelerometer_data(uint32_t time_uS, float accX, float accY, float accZ) {
+FRESULT SD_write_accelerometer_data(uint32_t time_uS, float acc1X, float acc1Y, float acc1Z, float acc2X, float acc2Y, float acc2Z) {
 	char accel_fname[32];
 	uint8_t write_data[_MAX_SS];
 	uint32_t byteswritten;
@@ -152,7 +167,7 @@ FRESULT SD_write_accelerometer_data(uint32_t time_uS, float accX, float accY, fl
 	}
 
 	//Write to the text file
-	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%.3f,%.3f,%.3f\n", time_uS, accX, accY, accZ);
+	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%.3f,%.3f,%.3,%.3f,%.3f,%.3f\n", time_uS, acc1X, acc1Y, acc1Z, acc2X, acc2Y, acc2Z);
 
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
@@ -165,7 +180,7 @@ FRESULT SD_write_accelerometer_data(uint32_t time_uS, float accX, float accY, fl
 	return res;
 }
 
-FRESULT SD_write_gyroscope_data(uint32_t time_uS, float gyroX, float gyroY, float gyroZ) {
+FRESULT SD_write_gyroscope_data(uint32_t time_uS, float gyro1X, float gyro1Y, float gyro1Z, float gyro2X, float gyro2Y, float gyro2Z) {
 	uint8_t write_data[_MAX_SS];
 	uint32_t byteswritten;
 	char gyro_fname[32];
@@ -178,7 +193,7 @@ FRESULT SD_write_gyroscope_data(uint32_t time_uS, float gyroX, float gyroY, floa
 	}
 
 	//Write to the text file
-	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%.3f,%.3f,%.3f\n", time_uS, gyroX, gyroY, gyroZ);
+	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", time_uS, gyro1X, gyro1Y, gyro1Z, gyro2X, gyro2Y, gyro2Z);
 
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
@@ -269,7 +284,7 @@ FRESULT SD_write_GPS_data(uint32_t time_uS, int time_hours, int time_minutes, in
 	return res;
 }
 
-FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t tranmsitting_gps, int flight_state, float starting_altitude, uint32_t launch_time, uint8_t controller_saturated) {
+FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t flight_state, uint8_t drogue_ematch_status, uint8_t main_ematch_status, uint32_t launch_time, uint32_t drogue_deploy_time, float drogue_deploy_altitude, uint32_t main_deploy_time, float main_deploy_altitude, uint32_t landing_time, float landing_altitude, float battery_voltage) {
 	uint8_t write_data[_MAX_SS];
 	uint32_t byteswritten;
 	char sys_fname[32];
@@ -279,9 +294,8 @@ FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t tranmsitting_gps, i
 	if (res != FR_OK) {
 		Error_Handler();
 	}
-
 	//Write to the text file
-	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%d,%d,%f,%.0lu,%d\n", time_uS, tranmsitting_gps, flight_state, starting_altitude, launch_time, controller_saturated);
+	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%d,%d,%d,%.0lu,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f,\n", time_uS, flight_state, drogue_ematch_status, main_ematch_status, launch_time, drogue_deploy_time, drogue_deploy_altitude, main_deploy_time, main_deploy_altitude, landing_time, landing_altitude, battery_voltage);
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -341,14 +355,14 @@ FRESULT SD_write_binary_stream(uint8_t *buffer, size_t len) {
 	return res;
 }
 
-FRESULT SD_get_free_space_kB(float* kBytes_free) {
+FRESULT SD_get_free_space_kB(float *kBytes_free) {
 	DWORD fre_clust, fre_sect;
-	FATFS* SDFatFS_ptr_ptr = &SDFatFS;
+	FATFS *SDFatFS_ptr_ptr = &SDFatFS;
 	// Get free clusters
 	FRESULT res = f_getfree((TCHAR const*) SDPath, &fre_clust, &SDFatFS_ptr_ptr);
 	// Calculate free sectors
 	fre_sect = fre_clust * SDFatFS_ptr_ptr->csize;
 	// Assuming 512 byes/sector
-	*kBytes_free = ((float)fre_sect) / 2.0;
+	*kBytes_free = ((float) fre_sect) / 2.0;
 	return res;
 }
