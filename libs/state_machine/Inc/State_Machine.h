@@ -22,7 +22,7 @@ typedef enum ematchState {
 } ematchState;
 
 typedef enum armState {
-	ARMED, DISARMED,
+	DISARMED, ARMED
 } armState;
 
 /*
