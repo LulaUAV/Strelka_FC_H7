@@ -127,7 +127,7 @@
 #define ARM_MAIN_RES_LEN 		0x01
 #define ARM_DROGUE_RES_LEN 		0x01
 #define SYSTEM_STATE_PACKET_REQ_LEN 0x01
-#define SYSTEM_STATE_PACKET_TYPE_0_RES_LEN 0x80
+#define SYSTEM_STATE_PACKET_TYPE_0_RES_LEN 0x82
 #define SYSTEM_STATE_PACKET_TYPE_1_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_2_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_3_RES_LEN 0x00
@@ -427,6 +427,8 @@ typedef struct __attribute__((__packed__))
 	float packet_stream_frequency;
 	uint8_t heart_beat_enabled;
 	float heart_beat_chirp_frequency;
+	uint8_t flash_logging_enabled;
+	uint8_t flight_state;
 } system_state_packet_type_0_res;
 
 typedef struct __attribute__((__packed__)) 
