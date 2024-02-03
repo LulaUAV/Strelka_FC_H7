@@ -34,5 +34,6 @@ FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t flight_state, uint8
 FRESULT SD_write_ekf_data(uint32_t time_uS, float qu1, float qu2, float qu3, float qu4);
 FRESULT SD_write_headers();
 FRESULT SD_write_binary_stream(uint8_t *buffer, size_t len);
-FRESULT SD_get_free_space_kB(float* kBytes_free);
+FRESULT SD_get_free_space_kB(float* kBytes_free);;
+FRESULT SD_erase_disk();
 #endif /* INC_SD_H_ */

@@ -360,3 +360,65 @@ FRESULT SD_get_free_space_kB(float *kBytes_free) {
 	*kBytes_free = ((float) fre_sect) / 2.0;
 	return res;
 }
+
+
+FRESULT delete_directory_contents(const TCHAR* path) {
+    FRESULT result;
+    DIR dir;
+    FILINFO fileInfo;
+
+    result = f_opendir(&dir, path);
+    if (result != FR_OK) {
+        return result;
+    }
+
+    while (1) {
+        result = f_readdir(&dir, &fileInfo);
+        if (result != FR_OK || fileInfo.fname[0] == 0) {
+            break;  // End of directory or read error
+        }
+
+        if (fileInfo.fname[0] == '.') {
+            continue;  // Ignore '.' and '..'
+        }
+
+        TCHAR file_path[_MAX_LFN + 1];
+        snprintf(file_path, sizeof(file_path), "%s/%s", path, fileInfo.fname);
+
+        if (fileInfo.fattrib & AM_DIR) {
+            // It's a directory
+            result = delete_directory_contents(file_path);
+            if (result != FR_OK) {
+                return result;
+            }
+        } else {
+            // It's a file
+            result = f_unlink(file_path);
+            if (result != FR_OK) {
+                return result;
+            }
+        }
+    }
+
+    f_closedir(&dir);
+    return FR_OK;
+}
+
+FRESULT SD_erase_disk() {
+    FATFS fs;
+    FRESULT result;
+
+    result = f_mount(&fs, "", 0);  // Mount the default drive
+    if (result != FR_OK) {
+        return result;  // Handle mount error
+    }
+
+    result = delete_directory_contents("/");  // Erase contents starting from root directory
+    if (result != FR_OK) {
+        f_mount(NULL, "", 0);  // Unmount the default drive on error
+        return result;  // Handle delete error
+    }
+
+    result = f_mount(NULL, "", 0);  // Unmount the default drive
+    return result;  // Return the result of unmount operation
+}
