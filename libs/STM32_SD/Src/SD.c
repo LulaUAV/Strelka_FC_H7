@@ -26,15 +26,15 @@ FRESULT SD_init() {
 		if (res == FR_NO_FILESYSTEM) {
 			res = f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext));
 			if (res != FR_OK) {
-				SD_Error_Handler();
+				Non_Blocking_Error_Handler();
 			}
 		} else
-			SD_Error_Handler();
+			Non_Blocking_Error_Handler();
 	}
 
 	res = SD_mk_root_dir();
 	if (res != FR_OK) {
-		SD_Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	return res;
@@ -59,12 +59,6 @@ FRESULT SD_mk_root_dir() {
 	return res;
 }
 
-void SD_Error_Handler() {
-	while (1) {
-		osDelay(100000);
-	}
-}
-
 FRESULT SD_write_headers() {
 	char fname[32];
 	uint32_t byteswritten;
@@ -72,13 +66,13 @@ FRESULT SD_write_headers() {
 	FRESULT res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
 	osDelay(10);
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	uint8_t accel_header[] = "timestamp(uS),acc1X(g),acc1Y(g),acc1Z(g),acc2X(g),acc2Y(g),acc2Z(g)\n";
 	res = f_write(&SDFile, accel_header, sizeof(accel_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -89,13 +83,13 @@ FRESULT SD_write_headers() {
 	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
 	osDelay(10);
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	char gyro_header[] = "timestamp(uS),gyro1X(rad/s),gyro1Y(rad/s),gyro1Z(rad/s),gyro2X(rad/s),gyro2Y(rad/s),gyro2Z(rad/s)\n";
 	res = f_write(&SDFile, gyro_header, sizeof(gyro_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -106,13 +100,13 @@ FRESULT SD_write_headers() {
 	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
 	osDelay(10);
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	char mag_header[] = "timestamp(uS),magX(uT),magY(uT),magZ(uT)\n";
 	res = f_write(&SDFile, mag_header, sizeof(mag_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -123,13 +117,13 @@ FRESULT SD_write_headers() {
 	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
 	osDelay(10);
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	char baro_header[] = "timestamp(uS),altitude(m),pressure(Pa),temperature(degC)\n";
 	res = f_write(&SDFile, baro_header, sizeof(baro_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -140,13 +134,13 @@ FRESULT SD_write_headers() {
 	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
 	osDelay(10);
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	char sys_header[] = "timestamp(uS),flight state,drogue ematch status,main ematch status,launch time (mS),drogue deploy time (mS),drogue deploy altitude(m),main deploy time(ms),main deploy altitude(m),landing time(ms), landing altitude(m),battery voltage (V)\n";
 	res = f_write(&SDFile, sys_header, sizeof(sys_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -163,7 +157,7 @@ FRESULT SD_write_accelerometer_data(uint32_t time_uS, float acc1X, float acc1Y, 
 	FRESULT res = f_open(&SDFile, accel_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
@@ -172,7 +166,7 @@ FRESULT SD_write_accelerometer_data(uint32_t time_uS, float acc1X, float acc1Y, 
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -189,7 +183,7 @@ FRESULT SD_write_gyroscope_data(uint32_t time_uS, float gyro1X, float gyro1Y, fl
 	FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
@@ -198,7 +192,7 @@ FRESULT SD_write_gyroscope_data(uint32_t time_uS, float gyro1X, float gyro1Y, fl
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -214,7 +208,7 @@ FRESULT SD_write_magnetometer_data(uint32_t time_uS, float magX, float magY, flo
 	FRESULT res = f_open(&SDFile, mag_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
@@ -223,7 +217,7 @@ FRESULT SD_write_magnetometer_data(uint32_t time_uS, float magX, float magY, flo
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -239,7 +233,7 @@ FRESULT SD_write_barometer_data(uint32_t time_uS, float altitude, float pressure
 	FRESULT res = f_open(&SDFile, baro_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
@@ -248,7 +242,7 @@ FRESULT SD_write_barometer_data(uint32_t time_uS, float altitude, float pressure
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -265,7 +259,7 @@ FRESULT SD_write_GPS_data(uint32_t time_uS, int time_hours, int time_minutes, in
 	FRESULT res = f_open(&SDFile, gps_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	snprintf(dateTime, sizeof(dateTime), "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d", time_hours, time_minutes, time_seconds, date_day, date_month, date_year, hour_offset, minute_offset);
@@ -276,7 +270,7 @@ FRESULT SD_write_GPS_data(uint32_t time_uS, int time_hours, int time_minutes, in
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -292,14 +286,14 @@ FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t flight_state, uint8
 	FRESULT res = f_open(&SDFile, sys_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 	//Write to the text file
 	size_t sz = snprintf((char*) write_data, sizeof(write_data), "%.0lu,%d,%d,%d,%.0lu,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f,\n", time_uS, flight_state, drogue_ematch_status, main_ematch_status, launch_time, drogue_deploy_time, drogue_deploy_altitude, main_deploy_time, main_deploy_altitude, landing_time, landing_altitude, battery_voltage);
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -315,7 +309,7 @@ FRESULT SD_write_ekf_data(uint32_t time_uS, float qu1, float qu2, float qu3, flo
 	FRESULT res = f_open(&SDFile, sys_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
@@ -323,7 +317,7 @@ FRESULT SD_write_ekf_data(uint32_t time_uS, float qu1, float qu2, float qu3, flo
 	res = f_write(&SDFile, write_data, sz, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);
@@ -340,14 +334,14 @@ FRESULT SD_write_binary_stream(uint8_t *buffer, size_t len) {
 	FRESULT res = f_open(&SDFile, stream_fname, FA_OPEN_APPEND | FA_WRITE);
 
 	if (res != FR_OK) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	}
 
 	//Write to the text file
 	res = f_write(&SDFile, buffer, len, (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
-		Error_Handler();
+		Non_Blocking_Error_Handler();
 	} else {
 
 		f_close(&SDFile);

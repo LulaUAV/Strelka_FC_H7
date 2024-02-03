@@ -130,7 +130,7 @@ void EKF_Update(EKF *ekf, float ax_mps2, float ay_mps2, float az_mps2, float m, 
 	/******** Calculate C Matrix *********/
 	float C_data[3 * 4];
 	C_data[0] = -2 * ekf->qu.pData[2];
-	C_data[1] = 2  * ekf->qu.pData[3];
+	C_data[1] = 2 * ekf->qu.pData[3];
 	C_data[2] = -2 * ekf->qu.pData[0];
 	C_data[3] = 2 * ekf->qu.pData[1];
 	C_data[4] = 2 * ekf->qu.pData[1];
@@ -147,17 +147,20 @@ void EKF_Update(EKF *ekf, float ax_mps2, float ay_mps2, float az_mps2, float m, 
 	arm_matrix_instance_f32 temp_matrix;
 	arm_matrix_instance_f32 temp_matrix4x3;
 	arm_matrix_instance_f32 temp_matrix4x1;
+	arm_matrix_instance_f32 temp_matrix4x1_2;
 	arm_matrix_instance_f32 temp_matrix4x4;
 	float C_transpose_data[12];
 	float tmp2_data[12];
 	float mat_4x3_data[12];
 	float mat_4x1_data[4];
+	float mat_4x1_2_data[4];
 	float mat_4x4_data[16];
 	arm_mat_init_f32(&C, 3, 4, C_data);
 	arm_mat_init_f32(&C_transpose, 4, 3, C_transpose_data);
 	arm_mat_init_f32(&temp_matrix, 3, 4, tmp2_data);
 	arm_mat_init_f32(&temp_matrix4x3, 4, 3, mat_4x3_data);
 	arm_mat_init_f32(&temp_matrix4x1, 4, 1, mat_4x1_data);
+	arm_mat_init_f32(&temp_matrix4x1_2, 4, 1, mat_4x1_2_data);
 	arm_mat_init_f32(&temp_matrix4x4, 4, 4, mat_4x4_data);
 	arm_mat_trans_f32(&C, &C_transpose);
 
@@ -202,7 +205,18 @@ void EKF_Update(EKF *ekf, float ax_mps2, float ay_mps2, float az_mps2, float m, 
 	result = arm_mat_mult_f32(&ekf->K, &accel_vector, &temp_matrix4x1);
 
 	// Add current state vector to result in temp_matrix and store in current state vector
-	result = arm_mat_add_f32(&ekf->qu, &temp_matrix4x1, &ekf->qu);
+	result = arm_mat_add_f32(&ekf->qu, &temp_matrix4x1, &temp_matrix4x1_2);
+
+	// Normalise quaterion
+	float q0 = mat_4x1_2_data[0];
+	float q1 = mat_4x1_2_data[1];
+	float q2 = mat_4x1_2_data[2];
+	float q3 = mat_4x1_2_data[3];
+	float d = sqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	ekf->qu_data[0] = q0 / d;
+	ekf->qu_data[1] = q1 / d;
+	ekf->qu_data[2] = q2 / d;
+	ekf->qu_data[3] = q3 / d;
 
 	/******** Update P Matrix *********/
 	// Create identity matrix

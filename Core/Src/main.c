@@ -34,6 +34,7 @@
 #include "State_Machine.h"
 #include "Packets_Definitions.h"
 #include "SD.h"
+#include "EKF.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -111,6 +112,11 @@ osThreadId_t GPS_Tracker_TasHandle;
 uint32_t GPS_Tracker_TasBuffer[2048];
 osStaticThreadDef_t GPS_Tracker_TasControlBlock;
 const osThreadAttr_t GPS_Tracker_Tas_attributes = { .name = "GPS_Tracker_Tas", .cb_mem = &GPS_Tracker_TasControlBlock, .cb_size = sizeof(GPS_Tracker_TasControlBlock), .stack_mem = &GPS_Tracker_TasBuffer[0], .stack_size = sizeof(GPS_Tracker_TasBuffer), .priority = (osPriority_t) osPriorityLow, };
+/* Definitions for EKF_Task */
+osThreadId_t EKF_TaskHandle;
+uint32_t EKF_TaskBuffer[1024];
+osStaticThreadDef_t EKF_TaskControlBlock;
+const osThreadAttr_t EKF_Task_attributes = { .name = "EKF_Task", .cb_mem = &EKF_TaskControlBlock, .cb_size = sizeof(EKF_TaskControlBlock), .stack_mem = &EKF_TaskBuffer[0], .stack_size = sizeof(EKF_TaskBuffer), .priority = (osPriority_t) osPriorityAboveNormal1, };
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -140,6 +146,7 @@ void LoRa_Radio(void *argument);
 void Sample_Baro(void *argument);
 void Data_Logging(void *argument);
 void GPS_Tracker(void *argument);
+void Extended_Kalman_Filter(void *argument);
 
 /* USER CODE BEGIN PFP */
 enum debug_level dbg_level = INFO;
@@ -158,12 +165,13 @@ GPS_Handle gps = { .gps_good = false, .gps_buffer = { 0 } };
 LoRa LoRa_Handle;
 MS5611_Handle ms5611 = { .hspi = &hspi4, .baro_CS_port = SPI4_NSS_GPIO_Port, .baro_CS_pin = SPI4_NSS_Pin, };
 ms5611_osr_t osr = MS5611_ULTRA_HIGH_RES;
-SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 100, .flash_logging_enabled = true };
+SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 100, .flash_logging_enabled = false };
 ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
 Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .drogue_arm_state = DISARMED, .main_arm_state = DISARMED, .transmit_gps = true, .sensor_state = &sensor_state, };
 GPS_Tracking_Handle gps_tracker = { .tracking_enabled = false, .chirp_frequency = 1 };
 stream_packet_config_set packet_streamer = { .stream_packet_type_enabled = 10, .packet_stream_frequency = 1.0 };
+EKF ekf = { .do_update = true, };
 
 /* USER CODE END PFP */
 
@@ -336,6 +344,9 @@ int main(void) {
 
 	/* creation of GPS_Tracker_Tas */
 	GPS_Tracker_TasHandle = osThreadNew(GPS_Tracker, NULL, &GPS_Tracker_Tas_attributes);
+
+	/* creation of EKF_Task */
+	EKF_TaskHandle = osThreadNew(Extended_Kalman_Filter, NULL, &EKF_Task_attributes);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -1362,7 +1373,6 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		// TODO: Add input protection for bad inputs
 		flash_memory_config_set flash_memory_config;
 		memcpy(&flash_memory_config, payload_data, sizeof(flash_memory_config));
-		// TODO: Add logging enabled
 		SD_card.flash_logging_enabled = flash_memory_config.flash_logging_enabled;
 		SD_card.log_frequency = flash_memory_config.flash_write_speed;
 		break;
@@ -1501,11 +1511,11 @@ void State_Machine(void *argument) {
 	// Report E-match state
 	// TODO report ematch state over buzzer
 
-	osDelay(3000);
-//	while (0 /* TODO detect launch */) {
-//		/* Detect launch with acceleration using accelerometer and orientation (vertical) */
-//		osDelay(1);
-//	}
+	while (1 /* TODO detect launch */) {
+		/* Detect launch with acceleration using accelerometer and orientation (vertical) */
+//		if()
+		osDelay(1);
+	}
 	// Register launch
 	state_machine_fc.flight_state = LAUNCHED;
 	state_machine_fc.drogue_arm_state = ARMED;
@@ -1805,6 +1815,71 @@ void GPS_Tracker(void *argument) {
 	/* USER CODE END GPS_Tracker */
 }
 
+/* USER CODE BEGIN Header_Extended_Kalman_Filter */
+/**
+ * @brief Function implementing the EKF_Task thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Extended_Kalman_Filter */
+void Extended_Kalman_Filter(void *argument) {
+	/* USER CODE BEGIN Extended_Kalman_Filter */
+	while (!sensors_initialised) {
+		osDelay(10);
+	}
+	uint32_t currentSampleTime = 0;
+	uint32_t lastSampleTime = 0;
+	uint32_t correct_freq = 1;
+	uint32_t update_index = 0;
+	float EKF_K[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	float qu[4] = { 0, 0, 0.7071068, 0.7071068 }; // Corresponds to 0, 0, 90 YPR
+	float EKF_P[16] = { 0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.01 };
+	float EKF_Q[16] = { 0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.01 };
+	float EKF_R[9] = { 10, 0, 0, 0, 10, 0, 0, 0, 10 };
+	float p, q, r;
+	float ax, ay, az;
+	EKF_Init(&ekf, qu, EKF_K, EKF_P, EKF_Q, EKF_R, 0.0);
+	ekf.do_update = false;
+
+	/* Infinite loop */
+	for (;;) {
+		currentSampleTime = micros();
+		float dt = (currentSampleTime - lastSampleTime) / 1E6;
+		lastSampleTime = currentSampleTime;
+
+		// Extract gyroscopic data
+		if (1 /* TODO: Determine if asm330 is giving good data */) {
+			p = (float) (asm330_data.gyro[0]);
+			q = (float) (asm330_data.gyro[1]);
+			r = (float) (asm330_data.gyro[2]);
+		} else {
+			p = (float) (bmx055_data.gyro[0]);
+			q = (float) (bmx055_data.gyro[1]);
+			r = (float) (bmx055_data.gyro[2]);
+		}
+		EKF_Predict(&ekf, p, q, r, dt);
+
+		if (update_index % correct_freq == 0 && ekf.do_update && state_machine_fc.flight_state == IDLE_ON_PAD) {
+			// Extract accelerometer data
+			if (1 /* TODO: Determine if asm330 is giving good data */) {
+				ax = (float) (asm330_data.accel[0]);
+				ay = (float) (asm330_data.accel[1]);
+				az = (float) (asm330_data.accel[2]);
+			} else {
+				ax = (float) (bmx055_data.accel[0]);
+				ay = (float) (bmx055_data.accel[1]);
+				az = (float) (bmx055_data.accel[2]);
+			}
+			EKF_Update(&ekf, ax * GRAVITY_MS2, ay * GRAVITY_MS2, az * GRAVITY_MS2, 10.0, 0, 0);
+			update_index = 0;
+		}
+		update_index++;
+
+		osDelay(10);
+	}
+	/* USER CODE END Extended_Kalman_Filter */
+}
+
 /**
  * @brief  Period elapsed callback in non blocking mode
  * @note   This function is called  when TIM7 interrupt took place, inside
@@ -1840,9 +1915,9 @@ void Error_Handler(void) {
 	__disable_irq();
 	while (1) {
 		HAL_GPIO_WritePin(INDICATOR_GPIO_Port, INDICATOR_Pin, GPIO_PIN_SET);
-		osDelay(3000);
+		HAL_Delay(3000);
 		HAL_GPIO_WritePin(INDICATOR_GPIO_Port, INDICATOR_Pin, GPIO_PIN_RESET);
-		osDelay(3000);
+		HAL_Delay(3000);
 	}
 	/* USER CODE END Error_Handler_Debug */
 }

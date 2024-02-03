@@ -107,36 +107,37 @@ uint8_t ASM330_readGyro(ASM330_handle *asm330, float *gyro) {
 	static int16_t data_raw_angular_rate[3];
 	asm330lhhx_angular_rate_raw_get(&asm330->dev_ctx, data_raw_angular_rate);
 
+	// Convert from md/s to rad/s
 	switch (asm330->gyro_scale) {
 	case ASM330LHHX_125dps:
-		gyro[0] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	case ASM330LHHX_250dps:
-		gyro[0] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	case ASM330LHHX_500dps:
-		gyro[0] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	case ASM330LHHX_1000dps:
-		gyro[0] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	case ASM330LHHX_2000dps:
-		gyro[0] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	case ASM330LHHX_4000dps:
-		gyro[0] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[0]) / 1000.0;
-		gyro[1] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[1]) / 1000.0;
-		gyro[2] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[2]) / 1000.0;
+		gyro[0] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
+		gyro[1] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
+		gyro[2] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
 		return 1;
 	}
 }
