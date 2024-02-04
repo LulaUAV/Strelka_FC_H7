@@ -1844,7 +1844,7 @@ void Extended_Kalman_Filter(void *argument) {
 	float p, q, r;
 	float ax, ay, az;
 	EKF_Init(&ekf, qu, EKF_K, EKF_P, EKF_Q, EKF_R, 0.0);
-	ekf.do_update = false;
+	ekf.do_update = true;
 
 	/* Infinite loop */
 	for (;;) {
@@ -1875,7 +1875,7 @@ void Extended_Kalman_Filter(void *argument) {
 				ay = (float) (bmx055_data.accel[1]);
 				az = (float) (bmx055_data.accel[2]);
 			}
-			EKF_Update(&ekf, ax * GRAVITY_MS2, ay * GRAVITY_MS2, az * GRAVITY_MS2, 10.0, 0, 0);
+			EKF_Update(&ekf, ax, ay, az, 10.0, 0, 0);
 			update_index = 0;
 		}
 		update_index++;
