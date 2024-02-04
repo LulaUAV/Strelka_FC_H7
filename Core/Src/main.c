@@ -1219,6 +1219,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 /****** Radio control packet handling functions ******/
 void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len) {
+	if(len < 4) {
+		// Not a vaid packet
+		return;
+	}
 	uint16_t identifier;
 	memcpy(&identifier, Rx_buffer, 2);
 	uint8_t protocol_version;
