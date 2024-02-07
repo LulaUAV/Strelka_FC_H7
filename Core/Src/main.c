@@ -35,7 +35,7 @@
 #include "Packets_Definitions.h"
 #include "SD.h"
 #include "EKF.h"
-#include "uavcan.h"
+#include "CO_app_STM32.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,6 +72,7 @@ SPI_HandleTypeDef hspi4;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim13;
+TIM_HandleTypeDef htim17;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
@@ -184,7 +185,7 @@ const osThreadAttr_t CANTask_attributes = {
   .cb_size = sizeof(CANTaskControlBlock),
   .stack_mem = &CANTaskBuffer[0],
   .stack_size = sizeof(CANTaskBuffer),
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityHigh1,
 };
 /* USER CODE BEGIN PV */
 
@@ -208,6 +209,7 @@ static void MX_TIM13_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_FDCAN1_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM17_Init(void);
 void StartDefaultTask(void *argument);
 void State_Machine(void *argument);
 void Sample_Sensors(void *argument);
@@ -216,7 +218,7 @@ void Sample_Baro(void *argument);
 void Data_Logging(void *argument);
 void GPS_Tracker(void *argument);
 void Extended_Kalman_Filter(void *argument);
-void UAVCAN(void *argument);
+void CANopen(void *argument);
 
 /* USER CODE BEGIN PFP */
 enum debug_level dbg_level = INFO;
@@ -343,6 +345,7 @@ int main(void)
   MX_FATFS_Init();
   MX_FDCAN1_Init();
   MX_TIM5_Init();
+  MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
 	// Used to ensure all priority grouping are pre-emption (no sub-priorities) so that CMSIS does not fault
 	NVIC_SetPriorityGrouping(0);
@@ -425,7 +428,7 @@ int main(void)
   EKF_TaskHandle = osThreadNew(Extended_Kalman_Filter, NULL, &EKF_Task_attributes);
 
   /* creation of CANTask */
-  CANTaskHandle = osThreadNew(UAVCAN, NULL, &CANTask_attributes);
+  CANTaskHandle = osThreadNew(CANopen, NULL, &CANTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -670,17 +673,17 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Instance = FDCAN1;
   hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
   hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
-  hfdcan1.Init.AutoRetransmission = DISABLE;
+  hfdcan1.Init.AutoRetransmission = ENABLE;
   hfdcan1.Init.TransmitPause = DISABLE;
-  hfdcan1.Init.ProtocolException = DISABLE;
-  hfdcan1.Init.NominalPrescaler = 16;
+  hfdcan1.Init.ProtocolException = ENABLE;
+  hfdcan1.Init.NominalPrescaler = 24;
   hfdcan1.Init.NominalSyncJumpWidth = 1;
-  hfdcan1.Init.NominalTimeSeg1 = 2;
+  hfdcan1.Init.NominalTimeSeg1 = 13;
   hfdcan1.Init.NominalTimeSeg2 = 2;
   hfdcan1.Init.DataPrescaler = 1;
   hfdcan1.Init.DataSyncJumpWidth = 1;
-  hfdcan1.Init.DataTimeSeg1 = 1;
-  hfdcan1.Init.DataTimeSeg2 = 1;
+  hfdcan1.Init.DataTimeSeg1 = 13;
+  hfdcan1.Init.DataTimeSeg2 = 2;
   hfdcan1.Init.MessageRAMOffset = 0;
   hfdcan1.Init.StdFiltersNbr = 0;
   hfdcan1.Init.ExtFiltersNbr = 0;
@@ -1046,6 +1049,38 @@ static void MX_TIM13_Init(void)
 }
 
 /**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 240-1;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 1000;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -1346,7 +1381,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 /****** Radio control packet handling functions ******/
 void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len) {
-	if(len < 4) {
+	if (len < 4) {
 		// Not a vaid packet
 		return;
 	}
@@ -2024,23 +2059,33 @@ void Extended_Kalman_Filter(void *argument)
   /* USER CODE END Extended_Kalman_Filter */
 }
 
-/* USER CODE BEGIN Header_UAVCAN */
+/* USER CODE BEGIN Header_CANopen */
 /**
-* @brief Function implementing the CANTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_UAVCAN */
-void UAVCAN(void *argument)
+ * @brief Function implementing the CANTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_CANopen */
+void CANopen(void *argument)
 {
-  /* USER CODE BEGIN UAVCAN */
+  /* USER CODE BEGIN CANopen */
+	/* CANopen configurations */
+	CANopenNodeSTM32 canOpenNodeSTM32;
+	canOpenNodeSTM32.CANHandle = &hfdcan1;
+	canOpenNodeSTM32.HWInitFunction = MX_FDCAN1_Init;
+	canOpenNodeSTM32.timerHandle = &htim17;
+	canOpenNodeSTM32.desiredNodeID = 24;
+	canOpenNodeSTM32.baudrate = 125;
+	canopen_app_init(&canOpenNodeSTM32);
 
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END UAVCAN */
+	/* Infinite loop */
+	for (;;) {
+
+		// Run this once every millisecond
+		canopen_app_process();
+		osDelay(pdMS_TO_TICKS(1));
+	}
+  /* USER CODE END CANopen */
 }
 
 /**
@@ -2054,18 +2099,22 @@ void UAVCAN(void *argument)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-	// Timer elapsed therefore, GPS fix lost
-	if (htim->Instance == TIM2) {
-		gps.gps_good = false;
-		TIM2->CNT = 0;
-	}
 
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM7) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
+	// Timer elapsed therefore, GPS fix lost
+	else if (htim->Instance == TIM2) {
+		gps.gps_good = false;
+		TIM2->CNT = 0;
+	}
 
+	else if (htim == canopenNodeSTM32->timerHandle) {
+		// Handle CANOpen app interrupts
+		canopen_app_interrupt();
+	}
   /* USER CODE END Callback 1 */
 }
 
