@@ -51,7 +51,7 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 	asm330lhhx_i3c_disable_set(&asm330->dev_ctx, ASM330LHHX_I3C_DISABLE);
 
 	/* Enable Block Data Update. */
-//	asm330lhhx_block_data_update_set(&asm330->dev_ctx, PROPERTY_ENABLE);
+	asm330lhhx_block_data_update_set(&asm330->dev_ctx, PROPERTY_DISABLE);
 
 	/* Set Output Data Rate. */
 	asm330lhhx_xl_data_rate_set(&asm330->dev_ctx, asm330->accel_odr);
