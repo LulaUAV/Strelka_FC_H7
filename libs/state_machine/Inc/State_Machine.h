@@ -34,6 +34,7 @@ typedef enum armState {
 
 // Launch detection constants
 #define LAUNCH_ACCEL_FILTER_FREQ			100.0f			// Hz
+#define LAUNCH_ACCEL_FILTER_WIDTH			10				// Filter width elements
 #define LAUNCH_ACCEL_THRESHOLD 				1.2f			// g
 #define PITCH_OVER_ANGLE_THRESHOLD			30.0f			// degrees
 
@@ -43,9 +44,11 @@ typedef enum armState {
 #define BURNOUT_ACCEL_THRESHOLD				-0.5f			// g
 
 // Apogee detection constants
-#define VERTICAL_VELOCITY_DETECT_FREQ		100				// Hz
+#define VERTICAL_VELOCITY_DETECT_FREQ		20				// Hz
 #define VERTICAL_VELOCITY_FILTER_FREQ   	10				// Hz
 #define APOGEE_DETECT_VELOCITY_THRESHOLD	1.0f			// m/s
+#define ALTITUDE_LP_FILTER_CUTOFF_FREQ		10.0f			// Hz
+#define ALTITUDE_LP_FILTER_UPDATE_FREQ		100				// Hz
 
 // Main deploy altitude detection constants
 #define MAIN_DEPLOY_ALTITUDE				300				// m above the starting altitude (ground)
@@ -96,13 +99,6 @@ typedef struct {
 uint8_t calculate_attitude_error(arm_matrix_instance_f32 *current_vec, arm_matrix_instance_f32 *desired_vec, float *theta, arm_matrix_instance_f32 *normal_vector);
 uint8_t EP2C(arm_matrix_instance_f32 *qu, arm_matrix_instance_f32 *dir_cos);
 uint8_t vector_cross_product(arm_matrix_instance_f32 *a, arm_matrix_instance_f32 *b, arm_matrix_instance_f32 *res);
-bool detect_launch_accel(float *current_acc, float *prev_acc, float current_altitude);
-bool detect_launch_baro();
-bool detect_burnout(float *current_acc, float *prev_acc);
-bool detect_apogee(float *current_vertical_velocity, float *previous_vertical_velocity);
-bool detect_apogee_delay(uint32_t launch_time_us, uint32_t current_time_us);
-void fill_median_filter_buffer(float data_point, size_t idx);
-bool detect_landing(float *current_vertical_velocity, float *previous_vertical_velocity);
 void deploy_drogue_parachute(GPIO_TypeDef *H_port, GPIO_TypeDef *L_port, uint16_t H_pin, uint16_t L_pin);
 void deploy_main_parachute(GPIO_TypeDef *H_port, GPIO_TypeDef *L_port, uint16_t H_pin, uint16_t L_pin);
 ematchState test_continuity(ADC_HandleTypeDef *hadc, GPIO_TypeDef *L_port, uint16_t L_pin, uint32_t adcChannel);

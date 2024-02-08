@@ -9,19 +9,19 @@
 
 
 void initMedianFilter(MedianFilter_t *filter, int size, float updateFrequency) {
-    filter->size = size > MAX_FILTER_SIZE ? MAX_FILTER_SIZE : size;
+    filter->size = size > MAX_MEDIAN_FILTER_SIZE ? MAX_MEDIAN_FILTER_SIZE : size;
     filter->currentIndex = 0;
     filter->filledUp = false;
     filter->updateFrequency = updateFrequency;
-    filter->currentUpdateCount = 0;
+    filter->lastUpdateTime = 0;
     filter->lastUpdateTime = 0.0;
 }
 
 
-void updateMedianFilter(MedianFilter *filter, float newValue, float updateTime_s) {
+void updateMedianFilter(MedianFilter_t *filter, float newValue, float updateTime_s) {
 	if(updateTime_s - filter->lastUpdateTime >= 1/filter->updateFrequency) {
 		// Sufficient time has elapsed since last update
-		filter->lastUpateTime = updateTime_s;
+		filter->lastUpdateTime = updateTime_s;
 	    filter->values[filter->currentIndex] = newValue;
 	    filter->currentIndex++;
 	    if (filter->currentIndex >= filter->size) {
@@ -53,4 +53,23 @@ float getMedianValue(float *array, size_t size) {
         // If odd number of elements, take the middle value
         return array[middleIndex];
     }
+}
+
+// Initialize the exponential low-pass filter
+void initExpLowPassFilter(ExpLowPassFilter_t *filter, float updateFrequency, float cutoffFrequency, float initialInput) {
+    filter->updateFrequency = updateFrequency;
+    filter->cutoffFrequency = cutoffFrequency;
+    filter->prevOutput = initialInput;
+    filter->alpha = 1.0 - exp(-2.0 * M_PI * filter->cutoffFrequency / filter->updateFrequency);
+}
+
+// Update the exponential low-pass filter with a new input value
+float updateExpLowPassFilter(ExpLowPassFilter_t *filter, float input) {
+    // Calculate the new output using the exponential low-pass filter formula
+    float output = filter->alpha * input + (1 - filter->alpha) * filter->prevOutput;
+
+    // Update the previous output state
+    filter->prevOutput = output;
+
+    return output;
 }

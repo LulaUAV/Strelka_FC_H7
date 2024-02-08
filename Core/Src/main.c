@@ -1571,11 +1571,11 @@ void State_Machine(void *argument) {
 	// Define normal vector (isn't used but must be defined)
 	arm_matrix_instance_f32 normal_vector;
 	float normal_vector_data[3] = { 0 };
-	arm_mat_init_f32(&up_vec_data, 3, 1, normal_vector_data);
+	arm_mat_init_f32(&normal_vector, 3, 1, normal_vector_data);
 
 	// Define median filter object
 	MedianFilter_t launch_median_filter;
-	initMedianFilter(&launch_median_filter, 10, LAUNCH_ACCEL_FILTER_FREQ);
+	initMedianFilter(&launch_median_filter, LAUNCH_ACCEL_FILTER_WIDTH, LAUNCH_ACCEL_FILTER_FREQ);
 
 	/*
 	 * Launch detection:
@@ -1590,7 +1590,7 @@ void State_Machine(void *argument) {
 		float angle_from_vertical;
 		uint8_t result = calculate_attitude_error(&ekf.qu, &up_vec, &angle_from_vertical, &normal_vector);
 		if (!result) {
-			if (angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD) || 180 - angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD)) {
+			if (angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD) || M_PI - angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD)) {
 				// Rocket is in a suitable orientation to detect launch
 				float ax2, ay2, az2;
 				if (asm330.acc_good) {
@@ -1625,19 +1625,20 @@ void State_Machine(void *argument) {
 
 	MedianFilter_t burnout_median_filter;
 	initMedianFilter(&burnout_median_filter, 10, BURNOUT_ACCEL_FILTER_FREQ);
-	uint32_t last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
 
 	MedianFilter_t apogee_median_filter;
 	initMedianFilter(&apogee_median_filter, 10, VERTICAL_VELOCITY_FILTER_FREQ);
 	uint32_t last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
-
 	float last_altitude = ms5611_data.altitude;
+
+	ExpLowPassFilter_t altitude_median_filter;
+	initExpLowPassFilter(&altitude_median_filter, ALTITUDE_LP_FILTER_UPDATE_FREQ, ALTITUDE_LP_FILTER_CUTOFF_FREQ, ms5611_data.altitude);
 
 	/*
 	 * Burnout detection:
 	 * The vehicle will detect burnout if ANY of these elements are satisfied:
 	 * 1. The time elapsed since launch is greater than MAX_MOTOR_BURN_TIME
-	 * 2. The accelerometers have registered a negative acceleration in the X body axis
+	 * 2. The accelerometers have registered an acceleration less than BURNOUT_ACCEL_THRESHOLD in the X body axis
 	 *
 	 * Detecting burnout is a non-critical feature. It not be required to detect apogee
 	 *
@@ -1672,7 +1673,8 @@ void State_Machine(void *argument) {
 		// Only calculate velocity after sufficient time has passed to prevent dt from being too small
 		if ((float) (pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS - last_velocity_calculation_time) / 1000.0 >= (1.0 / VERTICAL_VELOCITY_DETECT_FREQ)) {
 			float dt = (pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS - last_velocity_calculation_time) / 1000.0;
-			float vertical_velocity = (ms5611_data.altitude - last_altitude) / dt;
+			float filtered_altitude = updateExpLowPassFilter(&altitude_median_filter, ms5611_data.altitude);
+			float vertical_velocity = (filtered_altitude - last_altitude) / dt;
 			updateMedianFilter(&apogee_median_filter, vertical_velocity, (float) pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS / 1000);
 
 			if (apogee_median_filter.filledUp) {
@@ -1682,6 +1684,7 @@ void State_Machine(void *argument) {
 				}
 			}
 			last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+			last_altitude = filtered_altitude;
 		}
 
 		osDelay(1);
@@ -1696,9 +1699,9 @@ void State_Machine(void *argument) {
 	 * The vehicle will detect the main deploy altitude when the following is satisfied:
 	 * 1. The vehicle's barometric altitude readings are below the MAIN_DEPLOY_ALTITUDE
 	 */
-	while(1) {
+	while (1) {
 		float altitude_agl = ms5611_data.altitude - state_machine_fc.starting_altitude;
-		if(altitude_agl <= MAIN_DEPLOY_ALTITUDE) {
+		if (altitude_agl <= MAIN_DEPLOY_ALTITUDE) {
 			break;
 		}
 		osDelay(1);
@@ -1708,6 +1711,11 @@ void State_Machine(void *argument) {
 	state_machine_fc.flight_state = MAIN_CHUTE_ALTITUDE;
 	deploy_main_parachute(MAIN_H_GPIO_Port, MAIN_L_GPIO_Port, MAIN_H_Pin, MAIN_L_Pin);
 
+	MedianFilter_t landing_median_filter;
+	initMedianFilter(&landing_median_filter, 10, VERTICAL_VELOCITY_FILTER_FREQ);
+	last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+	last_altitude = ms5611_data.altitude;
+
 	/*
 	 * Landing detection:
 	 * Landing will be detected when any of the following conditions are satisfied:
@@ -1716,21 +1724,35 @@ void State_Machine(void *argument) {
 	 */
 	// TODO
 	while (1) {
-		state_machine_fc.flight_state = LANDED;
-		// Disarm all pyro channels
-//		state_machine_fc.drogue_arm_state = DISARMED;
-//		state_machine_fc.main_arm_state = DISARMED;
-		// Check battery voltage
-		float battery_voltage = calculateBatteryVoltage(&hadc1);
-		if (battery_voltage <= 2.8) {
-			// Battery voltage is low, disable flight computer and sleep.
+		// Only calculate velocity after sufficient time has passed to prevent dt from being too small
+		if ((float) (pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS - last_velocity_calculation_time) / 1000.0 >= (1.0 / VERTICAL_VELOCITY_DETECT_FREQ)) {
+			float dt = (pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS - last_velocity_calculation_time) / 1000.0;
+			float vertical_velocity = (ms5611_data.altitude - last_altitude) / dt;
+			updateMedianFilter(&landing_median_filter, vertical_velocity, (float) pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS / 1000);
+
+			if (landing_median_filter.filledUp) {
+				float filtered_vertical_velocity = getMedianValue(landing_median_filter.values, landing_median_filter.size);
+				if (fabs(filtered_vertical_velocity) <= LANDING_SPEED_THRESHOLD) {
+					break;
+				}
+			}
+			last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
 		}
-		osDelay(1000);
 	}
+	state_machine_fc.flight_state = LANDED;
+	// Disarm all pyro channels
+	state_machine_fc.drogue_arm_state = DISARMED;
+	state_machine_fc.main_arm_state = DISARMED;
 
 	/* Infinite loop */
 	for (;;) {
-		osDelay(1);
+		// Check battery voltage
+		float battery_voltage = calculateBatteryVoltage(&hadc1);
+		if (battery_voltage <= 2.8) {
+			// Battery voltage is low, disable flight computer and sleep. <- Perhaps consider filtering this as well
+			// TODO
+		}
+		osDelay(1000);
 	}
 	/* USER CODE END State_Machine */
 }
