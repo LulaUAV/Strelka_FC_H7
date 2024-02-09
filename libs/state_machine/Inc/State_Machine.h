@@ -35,7 +35,7 @@ typedef enum armState {
 // Launch detection constants
 #define LAUNCH_ACCEL_FILTER_FREQ			100.0f			// Hz
 #define LAUNCH_ACCEL_FILTER_WIDTH			10				// Filter width elements
-#define LAUNCH_ACCEL_THRESHOLD 				1.2f			// g
+#define LAUNCH_ACCEL_THRESHOLD 				2.0f			// g
 #define PITCH_OVER_ANGLE_THRESHOLD			30.0f			// degrees
 
 // Burnout detection constants
