@@ -422,3 +422,100 @@ FRESULT SD_erase_disk() {
     result = f_mount(NULL, "", 0);  // Unmount the default drive
     return result;  // Return the result of unmount operation
 }
+
+
+void SD_write_accel_batch(uint8_t* accel_buffer, size_t accel_sz) {
+	uint32_t byteswritten;
+	// Write accel data
+	char accel_fname[32];
+	sprintf(accel_fname, "%s/%s", directory_name, accelDir);
+	FRESULT res = f_open(&SDFile, accel_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, accel_buffer, accel_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}
+
+void SD_write_gyro_batch(uint8_t* gyro_buffer, size_t gyro_sz) {
+	uint32_t byteswritten;
+	// Write gyro data
+	char gyro_fname[32];
+	sprintf(gyro_fname, "%s/%s", directory_name, gyroDir);
+	FRESULT res = f_open(&SDFile, gyro_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, gyro_buffer, gyro_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}
+
+void SD_write_mag_batch(uint8_t* mag_buffer, size_t mag_sz) {
+	uint32_t byteswritten;
+	// Write mag data
+	char mag_fname[32];
+	sprintf(mag_fname, "%s/%s", directory_name, magDir);
+	FRESULT res = f_open(&SDFile, mag_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, mag_buffer, mag_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}
+
+void SD_write_baro_batch(uint8_t* baro_buffer, size_t baro_sz) {
+	uint32_t byteswritten;
+	// Write baro data
+	char baro_fname[32];
+	sprintf(baro_fname, "%s/%s", directory_name, baroDir);
+	FRESULT res = f_open(&SDFile, baro_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, baro_buffer, baro_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}
+
+void SD_write_gps_batch(uint8_t* gps_buffer, size_t gps_sz) {
+	uint32_t byteswritten;
+	// Write gps data
+	char gps_fname[32];
+	sprintf(gps_fname, "%s/%s", directory_name, GPSDir);
+	FRESULT res = f_open(&SDFile, gps_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, gps_buffer, gps_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}
+
+void SD_write_sys_state_batch(uint8_t* sys_state_buffer, size_t sys_state_sz) {
+	uint32_t byteswritten;
+	// Write sys_state data
+	char sys_fname[32];
+	sprintf(sys_fname, "%s/%s", directory_name, systemStateDir);
+	FRESULT res = f_open(&SDFile, sys_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		Non_Blocking_Error_Handler();
+	}
+	res = f_write(&SDFile, sys_state_buffer, sys_state_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		Non_Blocking_Error_Handler();
+	}
+}

@@ -1956,22 +1956,94 @@ void Data_Logging(void *argument) {
 	TickType_t xLastWakeTime;
 	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0 / (float )SD_card.log_frequency); // Number of ms to delay for
 	xLastWakeTime = xTaskGetTickCount();
+
+	// Predefined format strings
+	char accel_write_fstring[] = "%.0lu,%.3f,%.3f,%.3,%.3f,%.3f,%.3f\n";
+	char gyro_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n";
+	char mag_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f\n";
+	char baro_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f\n";
+	char gps_write_fstring[] = "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d,%f, %f, %f, %d, %d,%.0lu,%s,%s\n";
+	char sys_state_fstring[] = "%.0lu,%d,%d,%d,%.0lu,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f,\n";
+
+	// Variables to store size of each write within each group
+	size_t accel_write_sz = snprintf(NULL, 0, accel_write_fstring);
+	size_t gyro_write_sz = snprintf(NULL, 0, gyro_write_fstring);
+	size_t mag_write_sz = snprintf(NULL, 0, mag_write_fstring);
+	size_t baro_write_sz = snprintf(NULL, 0, baro_write_fstring);
+	size_t gps_write_sz = snprintf(NULL, 0, gps_write_fstring);
+	size_t sys_state_write_sz = snprintf(NULL, 0, sys_state_fstring);
+
+	// Buffers to store grouped write data
+	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS];
+
+	// Variables to store amount written in each group
+	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0;
+	size_t prefill_counter = 0;
+	const max_batch_size = 100;
 	for (;;) {
 		if (SD_card.flash_logging_enabled) {
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
-			SD_write_accelerometer_data(micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
-			SD_write_gyroscope_data(micros(), asm330_data.gyro[0], asm330_data.gyro[1], asm330_data.gyro[2], bmx055_data.gyro[0], bmx055_data.gyro[1], bmx055_data.gyro[2]);
-			SD_write_magnetometer_data(micros(), bmx055_data.mag[0], bmx055_data.mag[1], bmx055_data.mag[2]);
-			SD_write_barometer_data(micros(), ms5611_data.altitude, ms5611_data.pressure, ms5611_data.temperature);
-			struct tm tstamp;
-			minmea_getdatetime(&tstamp, &gps.zda_frame.date, &gps.zda_frame.time);
-			SD_write_GPS_data(micros(), tstamp.tm_hour, tstamp.tm_min, tstamp.tm_sec, tstamp.tm_mday, tstamp.tm_mon, tstamp.tm_year, gps.zda_frame.hour_offset, gps.zda_frame.minute_offset, minmea_tocoord(&gps.gga_frame.latitude), minmea_tocoord(&gps.gga_frame.longitude), minmea_tofloat(&gps.gga_frame.altitude), gps.gga_frame.fix_quality, gps.gga_frame.satellites_tracked);
-			SD_write_system_state_data(micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, calculateBatteryVoltage(&hadc1));
+
+			// Append data to buffer arrays
+			if (prefill_counter < max_batch_size) {
+				if (accel_sz <= sizeof(accel_buffer) - accel_write_sz) {
+					accel_sz += snprintf((char*) &accel_buffer[accel_sz], sizeof(accel_buffer) - accel_sz, accel_write_fstring, micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
+				} else
+					prefill_counter = max_batch_size;
+				if (gyro_sz <= sizeof(gyro_buffer) - gyro_write_sz) {
+					gyro_sz += snprintf((char*) &gyro_buffer[gyro_sz], sizeof(gyro_buffer) - gyro_sz, gyro_write_fstring, micros(), asm330_data.gyro[0], asm330_data.gyro[1], asm330_data.gyro[2], bmx055_data.gyro[0], bmx055_data.gyro[1], bmx055_data.gyro[2]);
+				} else
+					prefill_counter = max_batch_size;
+				if (mag_sz <= sizeof(mag_buffer) - mag_write_sz) {
+					mag_sz += snprintf((char*) &mag_buffer[mag_sz], sizeof(mag_buffer) - mag_sz, mag_write_sz, micros(), bmx055_data.mag[0], bmx055_data.mag[1], bmx055_data.mag[2]);
+				} else
+					prefill_counter = max_batch_size;
+				if (baro_sz <= sizeof(baro_buffer) - baro_write_sz) {
+					baro_sz += snprintf((char*) &baro_buffer[baro_sz], sizeof(baro_buffer) - baro_sz, baro_write_sz, micros(), ms5611_data.altitude, ms5611_data.pressure, ms5611_data.temperature);
+				} else
+					prefill_counter = max_batch_size;
+				if (gps_sz <= sizeof(gps_buffer) - gps_write_sz) {
+					// Format gps data into timestamp structure
+					struct tm tstamp;
+					minmea_getdatetime(&tstamp, &gps.zda_frame.date, &gps.zda_frame.time);
+					// Create date time string
+					char dateTime[100];
+					snprintf(dateTime, sizeof(dateTime), "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d", tstamp.tm_hour, tstamp.tm_min, tstamp.tm_sec, tstamp.tm_mday, tstamp.tm_mon, tstamp.tm_year, gps.zda_frame.hour_offset, gps.zda_frame.minute_offset);
+					// Create LLA string
+					char LLA_Sat_Fix_Qual[100];
+					snprintf(LLA_Sat_Fix_Qual, sizeof(LLA_Sat_Fix_Qual), "%f, %f, %f, %d, %d", minmea_tocoord(&gps.gga_frame.latitude), minmea_tocoord(&gps.gga_frame.longitude), minmea_tofloat(&gps.gga_frame.altitude), gps.gga_frame.fix_quality, gps.gga_frame.satellites_tracked);
+					gps_sz += snprintf((char*) &gps_buffer[gps_sz], sizeof(gps_buffer) - gps_sz, "%.0lu,%s,%s\n", micros(), LLA_Sat_Fix_Qual, dateTime);
+				} else
+					prefill_counter = max_batch_size;
+				prefill_counter++;
+			} else {
+				// Write batches of data
+
+				// Write accel data
+				SD_write_accel_batch(accel_buffer, accel_sz);
+
+				// Write gyro data
+				SD_write_gyro_batch(gyro_buffer, gyro_sz);
+
+				// Write mag data
+				SD_write_mag_batch(mag_buffer, mag_sz);
+
+				// Write baro data
+				SD_write_baro_batch(baro_buffer, baro_sz);
+
+				// Write gps data
+				SD_write_gps_batch(gps_buffer, gps_sz);
+
+				// Write sys_state data
+				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
+
+				prefill_counter = 0;
+			}
 		} else {
-			osDelay(100);
+			osDelay(1000);
 		}
+		/* USER CODE END Data_Logging */
 	}
-	/* USER CODE END Data_Logging */
 }
 
 /* USER CODE BEGIN Header_GPS_Tracker */
