@@ -175,7 +175,7 @@ GPS_Handle gps = { .gps_good = false, .gps_buffer = { 0 } };
 LoRa LoRa_Handle;
 MS5611_Handle ms5611 = { .hspi = &hspi4, .baro_CS_port = SPI4_NSS_GPIO_Port, .baro_CS_pin = SPI4_NSS_Pin, };
 ms5611_osr_t osr = MS5611_ULTRA_HIGH_RES;
-SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 100, .flash_logging_enabled = false };
+SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 20, .flash_logging_enabled = false };
 ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
 Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .drogue_arm_state = DISARMED, .main_arm_state = DISARMED, .transmit_gps = true, .sensor_state = &sensor_state, };
@@ -1310,7 +1310,6 @@ void handle_rf_rx_packet(uint8_t *Rx_buffer, size_t len) {
 uint8_t get_rf_payload_len(uint8_t identifier) {
 	switch (identifier) {
 	case FLASH_MEMORY_CONFIG_SET:
-		// TODO: Define this packet
 		return FLASH_MEMORY_CONFIG_SET_PACKET_LEN;
 	case GPS_TRACKING_CONFIG_SET:
 		return GPS_TRACKING_CONFIG_SET_PACKET_LEN;
@@ -1941,7 +1940,9 @@ void Data_Logging(void *argument) {
 		Non_Blocking_Error_Handler();
 	}
 	SD_card.flash_good = true;
-//	SD_write_headers();
+	if (SD_card.flash_logging_enabled) {
+		SD_write_headers();
+	}
 
 //	SD_erase_disk();
 
@@ -1957,21 +1958,8 @@ void Data_Logging(void *argument) {
 	const TickType_t xFrequency = pdMS_TO_TICKS(1000.0 / (float )SD_card.log_frequency); // Number of ms to delay for
 	xLastWakeTime = xTaskGetTickCount();
 
-	// Predefined format strings
-	char accel_write_fstring[] = "%.0lu,%.3f,%.3f,%.3,%.3f,%.3f,%.3f\n";
-	char gyro_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n";
-	char mag_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f\n";
-	char baro_write_fstring[] = "%.0lu,%.3f,%.3f,%.3f\n";
-	char gps_write_fstring[] = "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d,%f, %f, %f, %d, %d,%.0lu,%s,%s\n";
-	char sys_state_fstring[] = "%.0lu,%d,%d,%d,%.0lu,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f,\n";
-
 	// Variables to store size of each write within each group
-	size_t accel_write_sz = snprintf(NULL, 0, accel_write_fstring);
-	size_t gyro_write_sz = snprintf(NULL, 0, gyro_write_fstring);
-	size_t mag_write_sz = snprintf(NULL, 0, mag_write_fstring);
-	size_t baro_write_sz = snprintf(NULL, 0, baro_write_fstring);
-	size_t gps_write_sz = snprintf(NULL, 0, gps_write_fstring);
-	size_t sys_state_write_sz = snprintf(NULL, 0, sys_state_fstring);
+	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0;
 
 	// Buffers to store grouped write data
 	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS];
@@ -1979,7 +1967,8 @@ void Data_Logging(void *argument) {
 	// Variables to store amount written in each group
 	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0;
 	size_t prefill_counter = 0;
-	const max_batch_size = 100;
+
+	const uint8_t max_batch_size = 100;
 	for (;;) {
 		if (SD_card.flash_logging_enabled) {
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -1987,34 +1976,45 @@ void Data_Logging(void *argument) {
 			// Append data to buffer arrays
 			if (prefill_counter < max_batch_size) {
 				if (accel_sz <= sizeof(accel_buffer) - accel_write_sz) {
-					accel_sz += snprintf((char*) &accel_buffer[accel_sz], sizeof(accel_buffer) - accel_sz, accel_write_fstring, micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
+					accel_write_sz = snprintf((char*) &accel_buffer[accel_sz], sizeof(accel_buffer) - accel_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
+					// Store previous write size
+					accel_sz += accel_write_sz;
 				} else
 					prefill_counter = max_batch_size;
 				if (gyro_sz <= sizeof(gyro_buffer) - gyro_write_sz) {
-					gyro_sz += snprintf((char*) &gyro_buffer[gyro_sz], sizeof(gyro_buffer) - gyro_sz, gyro_write_fstring, micros(), asm330_data.gyro[0], asm330_data.gyro[1], asm330_data.gyro[2], bmx055_data.gyro[0], bmx055_data.gyro[1], bmx055_data.gyro[2]);
+					gyro_write_sz = snprintf((char*) &gyro_buffer[gyro_sz], sizeof(gyro_buffer) - gyro_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", micros(), asm330_data.gyro[0], asm330_data.gyro[1], asm330_data.gyro[2], bmx055_data.gyro[0], bmx055_data.gyro[1], bmx055_data.gyro[2]);
+					gyro_sz += gyro_write_sz;
 				} else
 					prefill_counter = max_batch_size;
 				if (mag_sz <= sizeof(mag_buffer) - mag_write_sz) {
-					mag_sz += snprintf((char*) &mag_buffer[mag_sz], sizeof(mag_buffer) - mag_sz, mag_write_sz, micros(), bmx055_data.mag[0], bmx055_data.mag[1], bmx055_data.mag[2]);
+					mag_write_sz = snprintf((char*) &mag_buffer[mag_sz], sizeof(mag_buffer) - mag_sz, "%.0lu,%.3f,%.3f,%.3f\n", micros(), bmx055_data.mag[0], bmx055_data.mag[1], bmx055_data.mag[2]);
+					mag_sz += mag_write_sz;
 				} else
 					prefill_counter = max_batch_size;
 				if (baro_sz <= sizeof(baro_buffer) - baro_write_sz) {
-					baro_sz += snprintf((char*) &baro_buffer[baro_sz], sizeof(baro_buffer) - baro_sz, baro_write_sz, micros(), ms5611_data.altitude, ms5611_data.pressure, ms5611_data.temperature);
+					baro_write_sz = snprintf((char*) &baro_buffer[baro_sz], sizeof(baro_buffer) - baro_sz, "%.0lu,%.3f,%.3f,%.3f\n", micros(), ms5611_data.altitude, ms5611_data.pressure, ms5611_data.temperature);
+					baro_sz += baro_write_sz;
 				} else
 					prefill_counter = max_batch_size;
-				if (gps_sz <= sizeof(gps_buffer) - gps_write_sz) {
-					// Format gps data into timestamp structure
-					struct tm tstamp;
-					minmea_getdatetime(&tstamp, &gps.zda_frame.date, &gps.zda_frame.time);
-					// Create date time string
-					char dateTime[100];
-					snprintf(dateTime, sizeof(dateTime), "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d", tstamp.tm_hour, tstamp.tm_min, tstamp.tm_sec, tstamp.tm_mday, tstamp.tm_mon, tstamp.tm_year, gps.zda_frame.hour_offset, gps.zda_frame.minute_offset);
-					// Create LLA string
-					char LLA_Sat_Fix_Qual[100];
-					snprintf(LLA_Sat_Fix_Qual, sizeof(LLA_Sat_Fix_Qual), "%f, %f, %f, %d, %d", minmea_tocoord(&gps.gga_frame.latitude), minmea_tocoord(&gps.gga_frame.longitude), minmea_tofloat(&gps.gga_frame.altitude), gps.gga_frame.fix_quality, gps.gga_frame.satellites_tracked);
-					gps_sz += snprintf((char*) &gps_buffer[gps_sz], sizeof(gps_buffer) - gps_sz, "%.0lu,%s,%s\n", micros(), LLA_Sat_Fix_Qual, dateTime);
-				} else
-					prefill_counter = max_batch_size;
+
+				// Low speed writing at 1/10 write speed
+				if (prefill_counter % 10 == 0) {
+					if (gps_sz <= sizeof(gps_buffer) - gps_write_sz) {
+						// Format gps data into timestamp structure
+						struct tm tstamp;
+						minmea_getdatetime(&tstamp, &gps.zda_frame.date, &gps.zda_frame.time);
+						// Create date time string
+						char dateTime[100];
+						snprintf(dateTime, sizeof(dateTime), "%d:%d:%d %02d.%02d.%d UTC%+03d:%02d", tstamp.tm_hour, tstamp.tm_min, tstamp.tm_sec, tstamp.tm_mday, tstamp.tm_mon, tstamp.tm_year, gps.zda_frame.hour_offset, gps.zda_frame.minute_offset);
+						// Create LLA string
+						char LLA_Sat_Fix_Qual[100];
+						snprintf(LLA_Sat_Fix_Qual, sizeof(LLA_Sat_Fix_Qual), "%f, %f, %f, %d, %d", minmea_tocoord(&gps.gga_frame.latitude), minmea_tocoord(&gps.gga_frame.longitude), minmea_tofloat(&gps.gga_frame.altitude), gps.gga_frame.fix_quality, gps.gga_frame.satellites_tracked);
+						gps_write_sz = snprintf((char*) &gps_buffer[gps_sz], sizeof(gps_buffer) - gps_sz, "%.0lu,%s,%s\n", micros(), LLA_Sat_Fix_Qual, dateTime);
+						gps_sz += gps_write_sz;
+					} else
+						prefill_counter = max_batch_size;
+					// TODO: Add sys state writing
+				}
 				prefill_counter++;
 			} else {
 				// Write batches of data
@@ -2034,8 +2034,8 @@ void Data_Logging(void *argument) {
 				// Write gps data
 				SD_write_gps_batch(gps_buffer, gps_sz);
 
-				// Write sys_state data
-				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
+//				// Write sys_state data
+//				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
 
 				prefill_counter = 0;
 			}
@@ -2079,6 +2079,9 @@ void GPS_Tracker(void *argument) {
 			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
 			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .gyro1X = asm330_data.gyro[0], .gyro1Y = asm330_data.gyro[1], .gyro1Z = asm330_data.gyro[2], .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .battery_voltage = calculateBatteryVoltage(&hadc1), .flight_state = state_machine_fc.flight_state, .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .acc1X = asm330_data.accel[0], .acc1Y = asm330_data.accel[1], .acc1Z = asm330_data.accel[2], .velX = 0, .velY = 0, .velZ = 0, .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = ekf.qu_data[0], .quaternion_q2 = ekf.qu_data[1], .quaternion_q3 = ekf.qu_data[2], .quaternion_q4 = ekf.qu_data[3], .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS, .gps1_good = gps.gps_good };
 			send_rf_packet(STREAM_PACKET_TYPE_0, (uint8_t*) &pkt_0, sizeof(pkt_0));
+		}
+		else {
+			osDelay(500);
 		}
 
 	}
