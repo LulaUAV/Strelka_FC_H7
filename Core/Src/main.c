@@ -1592,7 +1592,8 @@ void State_Machine(void *argument) {
 			if (angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD) || M_PI - angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD)) {
 				// Rocket is in a suitable orientation to detect launch
 				float ax2, ay2, az2;
-				if (asm330.acc_good) {
+				// TODO: Determine why ASM330 fails occasionally
+				if (0/*asm330.acc_good*/) {
 					ax2 = asm330_data.accel[0] * asm330_data.accel[0];
 					ay2 = asm330_data.accel[1] * asm330_data.accel[1];
 					az2 = asm330_data.accel[2] * asm330_data.accel[2];
@@ -1653,7 +1654,7 @@ void State_Machine(void *argument) {
 			state_machine_fc.flight_state = BURNOUT;
 		}
 		float ax;
-		if (asm330.acc_good) {
+		if (0/*asm330.acc_good*/) {
 			ax = asm330_data.accel[0];
 		} else {
 			ax = bmx055_data.accel[0];
@@ -1692,6 +1693,8 @@ void State_Machine(void *argument) {
 	// Register apogee
 	state_machine_fc.flight_state = APOGEE;
 	deploy_drogue_parachute(DROGUE_H_GPIO_Port, DROGUE_L_GPIO_Port, DROGUE_H_Pin, DROGUE_L_Pin);
+	state_machine_fc.drogue_deploy_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+	state_machine_fc.drogue_deploy_altitude = ms5611_data.altitude;
 
 	/*
 	 * Main deploy altitude detection
@@ -1709,6 +1712,8 @@ void State_Machine(void *argument) {
 	// Register main deploy altitude
 	state_machine_fc.flight_state = MAIN_CHUTE_ALTITUDE;
 	deploy_main_parachute(MAIN_H_GPIO_Port, MAIN_L_GPIO_Port, MAIN_H_Pin, MAIN_L_Pin);
+	state_machine_fc.main_deploy_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+	state_machine_fc.main_deploy_altitude = ms5611_data.altitude;
 
 	MedianFilter_t landing_median_filter;
 	initMedianFilter(&landing_median_filter, 10, VERTICAL_VELOCITY_FILTER_FREQ);
@@ -1739,6 +1744,8 @@ void State_Machine(void *argument) {
 		}
 	}
 	state_machine_fc.flight_state = LANDED;
+	state_machine_fc.landing_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+	state_machine_fc.landing_altitude = ms5611_data.altitude;
 	// Disarm all pyro channels
 	state_machine_fc.drogue_arm_state = DISARMED;
 	state_machine_fc.main_arm_state = DISARMED;
@@ -1997,8 +2004,8 @@ void Data_Logging(void *argument) {
 				} else
 					prefill_counter = max_batch_size;
 
-				// Low speed writing at 1/10 write speed
-				if (prefill_counter % 10 == 0) {
+				// Low speed writing at 1/20 write speed
+				if (prefill_counter % 20 == 0) {
 					if (gps_sz <= sizeof(gps_buffer) - gps_write_sz) {
 						// Format gps data into timestamp structure
 						struct tm tstamp;
@@ -2013,7 +2020,11 @@ void Data_Logging(void *argument) {
 						gps_sz += gps_write_sz;
 					} else
 						prefill_counter = max_batch_size;
-					// TODO: Add sys state writing
+					if (sys_state_sz <= sizeof(sys_state_buffer) - sys_state_write_sz) {
+						sys_state_write_sz = snprintf((char*) &sys_state_buffer[sys_state_sz], sizeof(sys_state_buffer) - sys_state_sz, "%.0lu,%d,%d,%d,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f\r\n", micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.starting_altitude, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, calculateBatteryVoltage(&hadc1));
+						sys_state_sz += sys_state_write_sz;
+					} else
+						prefill_counter = max_batch_size;
 				}
 				prefill_counter++;
 			} else {
@@ -2034,8 +2045,8 @@ void Data_Logging(void *argument) {
 				// Write gps data
 				SD_write_gps_batch(gps_buffer, gps_sz);
 
-//				// Write sys_state data
-//				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
+				// Write sys_state data
+				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
 
 				prefill_counter = 0;
 				accel_sz = 0;
@@ -2134,7 +2145,7 @@ void Extended_Kalman_Filter(void *argument) {
 
 		if (update_index % correct_freq == 0 && ekf.do_update && state_machine_fc.flight_state == IDLE_ON_PAD) {
 			// Extract accelerometer data
-			if (1 /* TODO: Determine if asm330 is giving good data */) {
+			if (0/*asm330.acc_good*/ /* TODO: Determine if asm330 is giving good data */) {
 				ax = (float) (asm330_data.accel[0]);
 				ay = (float) (asm330_data.accel[1]);
 				az = (float) (asm330_data.accel[2]);

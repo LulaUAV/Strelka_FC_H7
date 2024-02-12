@@ -169,7 +169,7 @@ FRESULT SD_write_headers() {
 		}
 		Non_Blocking_Error_Handler();
 	}
-	char sys_header[] = "timestamp(uS),flight state,drogue ematch status,main ematch status,launch time (mS),drogue deploy time (mS),drogue deploy altitude(m),main deploy time(ms),main deploy altitude(m),landing time(ms), landing altitude(m),battery voltage (V)\n";
+	char sys_header[] = "timestamp(uS),flight state,drogue ematch status,main ematch status,launch time (mS), Launch altitude (m),drogue deploy time (mS),drogue deploy altitude(m),main deploy time(ms),main deploy altitude(m),landing time(ms), landing altitude(m),battery voltage (V)\n";
 	res = f_write(&SDFile, sys_header, sizeof(sys_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
