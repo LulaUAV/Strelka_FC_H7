@@ -151,6 +151,7 @@ double MS5611_readTemperature(MS5611_Handle* ms5611, bool compensation) {
 
 // Calculate altitude from Pressure & Sea level pressure
 double MS5611_getAltitude(double pressure, double seaLevelPressure) {
+
     return (44330.0f * (1.0f - pow((double)pressure / (double)seaLevelPressure, 0.1902949f)));
 }
 

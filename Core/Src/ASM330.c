@@ -74,12 +74,12 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 	return 0;
 }
 
-float previous_acc_value;
-uint8_t previous_acc_look_back_counter;
-uint8_t invalid_acc_counter;
-float previous_gyro_value;
-uint8_t previous_gyro_look_back_counter;
-uint8_t invalid_gyro_counter;
+float asm330_previous_acc_value;
+uint8_t asm330_previous_acc_look_back_counter;
+uint8_t asm330_invalid_acc_counter;
+float asm330_previous_gyro_value;
+uint8_t asm330_previous_gyro_look_back_counter;
+uint8_t asm330_invalid_gyro_counter;
 
 uint8_t ASM330_readAccel(ASM330_handle *asm330, float *accel) {
 	static int16_t data_raw_acceleration[3];
@@ -109,19 +109,19 @@ uint8_t ASM330_readAccel(ASM330_handle *asm330, float *accel) {
 	}
 
 	/* Check accelerometer is functioning correctly */
-	if(accel[0] == previous_acc_value) {
-		invalid_acc_counter++;
+	if(accel[0] == asm330_previous_acc_value) {
+		asm330_invalid_acc_counter++;
 	}
 	else {
-		invalid_acc_counter = 0;
+		asm330_invalid_acc_counter = 0;
 	}
-	previous_acc_look_back_counter++;
+	asm330_previous_acc_look_back_counter++;
 
-	if(previous_acc_look_back_counter > NUM_LOOK_BACK_CYCLES) {
-		previous_acc_value = accel[0];
-		invalid_acc_counter = 0;
+	if(asm330_previous_acc_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		asm330_previous_acc_value = accel[0];
+		asm330_invalid_acc_counter = 0;
 	}
-	if(invalid_acc_counter > NUM_LOOK_BACK_CYCLES) {
+	if(asm330_invalid_acc_counter > NUM_LOOK_BACK_CYCLES) {
 		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
 		asm330->acc_good = false;
 	}
@@ -169,19 +169,19 @@ uint8_t ASM330_readGyro(ASM330_handle *asm330, float *gyro) {
 		ret = 0;
 	}
 	/* Check gyroscope is functioning correctly */
-	if(gyro[0] == previous_gyro_value) {
-		invalid_gyro_counter++;
+	if(gyro[0] == asm330_previous_gyro_value) {
+		asm330_invalid_gyro_counter++;
 	}
 	else {
-		invalid_gyro_counter = 0;
+		asm330_invalid_gyro_counter = 0;
 	}
-	previous_gyro_look_back_counter++;
+	asm330_previous_gyro_look_back_counter++;
 
-	if(previous_gyro_look_back_counter > NUM_LOOK_BACK_CYCLES) {
-		previous_gyro_value = gyro[0];
-		invalid_gyro_counter = 0;
+	if(asm330_previous_gyro_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		asm330_previous_gyro_value = gyro[0];
+		asm330_invalid_gyro_counter = 0;
 	}
-	if(invalid_gyro_counter > NUM_LOOK_BACK_CYCLES) {
+	if(asm330_invalid_gyro_counter > NUM_LOOK_BACK_CYCLES) {
 		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
 		asm330->gyro_good = false;
 	}

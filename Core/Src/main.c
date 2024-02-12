@@ -125,6 +125,11 @@ osThreadId_t CANTaskHandle;
 uint32_t CANTaskBuffer[2048];
 osStaticThreadDef_t CANTaskControlBlock;
 const osThreadAttr_t CANTask_attributes = { .name = "CANTask", .cb_mem = &CANTaskControlBlock, .cb_size = sizeof(CANTaskControlBlock), .stack_mem = &CANTaskBuffer[0], .stack_size = sizeof(CANTaskBuffer), .priority = (osPriority_t) osPriorityHigh1, };
+/* Definitions for sysMonitorTask */
+osThreadId_t sysMonitorTaskHandle;
+uint32_t sysMonitorTaskBuffer[128];
+osStaticThreadDef_t sysMonitorTaskControlBlock;
+const osThreadAttr_t sysMonitorTask_attributes = { .name = "sysMonitorTask", .cb_mem = &sysMonitorTaskControlBlock, .cb_size = sizeof(sysMonitorTaskControlBlock), .stack_mem = &sysMonitorTaskBuffer[0], .stack_size = sizeof(sysMonitorTaskBuffer), .priority = (osPriority_t) osPriorityHigh3, };
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -157,6 +162,7 @@ void Data_Logging(void *argument);
 void GPS_Tracker(void *argument);
 void Extended_Kalman_Filter(void *argument);
 void CANopen(void *argument);
+void sysMonitor(void *argument);
 
 /* USER CODE BEGIN PFP */
 enum debug_level dbg_level = INFO;
@@ -366,6 +372,9 @@ int main(void) {
 
 	/* creation of CANTask */
 	CANTaskHandle = osThreadNew(CANopen, NULL, &CANTask_attributes);
+
+	/* creation of sysMonitorTask */
+	sysMonitorTaskHandle = osThreadNew(sysMonitor, NULL, &sysMonitorTask_attributes);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -1485,9 +1494,11 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		switch (incoming_packet.state_packet_type) {
 		case 0:
 			float available_flash_memory_kB;
-			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
+			SD_get_free_space_kB(&available_flash_memory_kB);
 			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = state_machine_fc.drogue_arm_state, .arm_main_state = state_machine_fc.main_arm_state, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = calculateBatteryVoltage(&hadc1), .drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8), .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_9), .stream_packet_type_enabled = packet_streamer.stream_packet_type_enabled, .packet_stream_frequency = packet_streamer.packet_stream_frequency, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS, .flash_logging_enabled = SD_card.flash_logging_enabled, .flight_state = state_machine_fc.flight_state, };
 			send_rf_packet(SYSTEM_STATE_PACKET_TYPE_0_RES, (uint8_t*) &response_packet, sizeof(response_packet));
+			break;
+		default:
 			break;
 		}
 		break;
@@ -1593,7 +1604,7 @@ void State_Machine(void *argument) {
 				// Rocket is in a suitable orientation to detect launch
 				float ax2, ay2, az2;
 				// TODO: Determine why ASM330 fails occasionally
-				if (0/*asm330.acc_good*/) {
+				if (asm330.acc_good) {
 					ax2 = asm330_data.accel[0] * asm330_data.accel[0];
 					ay2 = asm330_data.accel[1] * asm330_data.accel[1];
 					az2 = asm330_data.accel[2] * asm330_data.accel[2];
@@ -1622,6 +1633,8 @@ void State_Machine(void *argument) {
 	state_machine_fc.drogue_arm_state = ARMED;
 	state_machine_fc.main_arm_state = ARMED;
 	state_machine_fc.launch_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+	// Disable Kalman Filter update step
+	ekf.do_update = false;
 
 	MedianFilter_t burnout_median_filter;
 	initMedianFilter(&burnout_median_filter, 10, BURNOUT_ACCEL_FILTER_FREQ);
@@ -1658,7 +1671,7 @@ void State_Machine(void *argument) {
 			state_machine_fc.flight_state = BURNOUT;
 		}
 		float ax;
-		if (0/*asm330.acc_good*/) {
+		if (asm330.acc_good) {
 			ax = asm330_data.accel[0];
 		} else {
 			ax = bmx055_data.accel[0];
@@ -1670,7 +1683,8 @@ void State_Machine(void *argument) {
 			if (filtered_acceleration <= BURNOUT_ACCEL_THRESHOLD) {
 				// Register burnout
 				state_machine_fc.flight_state = BURNOUT;
-				state_machine_fc.burnout_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;;
+				state_machine_fc.burnout_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+				;
 				state_machine_fc.burnout_altitude = ms5611_data.altitude;
 			}
 		}
@@ -1684,7 +1698,7 @@ void State_Machine(void *argument) {
 			updateMedianFilter(&apogee_median_filter, vertical_velocity, (float) pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS / 1000);
 			float ax2, ay2, az2;
 			// TODO: Determine why ASM330 fails occasionally
-			if (0/*asm330.acc_good*/) {
+			if (asm330.acc_good) {
 				ax2 = asm330_data.accel[0] * asm330_data.accel[0];
 				ay2 = asm330_data.accel[1] * asm330_data.accel[1];
 				az2 = asm330_data.accel[2] * asm330_data.accel[2];
@@ -1814,7 +1828,7 @@ void Sample_Sensors(void *argument) {
 	}
 
 	/* Init GPS */
-	HAL_StatusTypeDef res = HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
+	HAL_UART_Receive_DMA(&huart2, gps_data.gps_buffer, sizeof(gps_data.gps_buffer));
 
 	/* Enable interrupts */
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
@@ -1848,6 +1862,7 @@ void Sample_Sensors(void *argument) {
 			BMX055_readAccel(&bmx055, accel_data);
 			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
 			ACCEL_ALPHA);
+			bmx055_data.accel_updated = true;
 		}
 		// Check BMX055_Gyro
 		if (sensor_type & BMX055_Gyro) {
@@ -1857,12 +1872,14 @@ void Sample_Sensors(void *argument) {
 			BMX055_readGyro(&bmx055, gyro_data);
 			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
 			GYRO_ALPHA);
+			bmx055_data.gyro_updated = true;
 		}
 		// Check BMX055_Mag
 		if (sensor_type & BMX055_Mag) {
 			// Clear bits corresponding to this case
 			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
+			bmx055_data.mag_updated = true;
 		}
 		// Check asm330_Accel
 		if (sensor_type & ASM330_Accel) {
@@ -1871,6 +1888,7 @@ void Sample_Sensors(void *argument) {
 			if (ASM330_readAccel(&asm330, asm330_data.accel)) {
 				// TODO: Handle error
 			}
+			asm330_data.accel_updated = true;
 		}
 		// Check asm330_Gyro
 		if (sensor_type & ASM330_Gyro) {
@@ -1879,6 +1897,7 @@ void Sample_Sensors(void *argument) {
 			if (ASM330_readGyro(&asm330, asm330_data.gyro)) {
 				// TODO: Handle error
 			}
+			asm330_data.gyro_updated = true;
 		}
 		// Check MAX_10S_GPS
 		if (sensor_type & MAX_10S_GPS) {
@@ -2027,7 +2046,7 @@ void Data_Logging(void *argument) {
 				} else
 					prefill_counter = max_batch_size;
 				if (ekf_sz <= sizeof(ekf_buffer) - ekf_write_sz) {
-					ekf_write_sz = snprintf((char*) &ekf_buffer[baro_sz], sizeof(ekf_buffer) - ekf_sz, "%.0lu,%.3f,%.3f,%.3f\n", micros(), ekf.qu_data[0], ekf.qu_data[1], ekf.qu_data[2], ekf.qu_data[3], ekf.do_update);
+					ekf_write_sz = snprintf((char*) &ekf_buffer[baro_sz], sizeof(ekf_buffer) - ekf_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%d\n", micros(), ekf.qu_data[0], ekf.qu_data[1], ekf.qu_data[2], ekf.qu_data[3], ekf.do_update);
 					ekf_sz += ekf_write_sz;
 				} else
 					prefill_counter = max_batch_size;
@@ -2091,8 +2110,8 @@ void Data_Logging(void *argument) {
 		} else {
 			osDelay(1000);
 		}
-		/* USER CODE END Data_Logging */
 	}
+	/* USER CODE END Data_Logging */
 }
 
 /* USER CODE BEGIN Header_GPS_Tracker */
@@ -2125,7 +2144,7 @@ void GPS_Tracker(void *argument) {
 		} else if (packet_streamer.stream_packet_type_enabled == 0) {
 			vTaskDelayUntil(&xStreamPacketLastWakeTime, xStreamPacketTransmitFrequency);
 			float available_flash_memory_kB;
-			FRESULT res = SD_get_free_space_kB(&available_flash_memory_kB);
+			SD_get_free_space_kB(&available_flash_memory_kB);
 			stream_packet_type_0 pkt_0 = { .ambient_temperature = ms5611_data.temperature, .gyro1X = asm330_data.gyro[0], .gyro1Y = asm330_data.gyro[1], .gyro1Z = asm330_data.gyro[2], .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .battery_voltage = calculateBatteryVoltage(&hadc1), .flight_state = state_machine_fc.flight_state, .gps1_altitude = minmea_tofloat(&gps.gga_frame.altitude), .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .acc1X = asm330_data.accel[0], .acc1Y = asm330_data.accel[1], .acc1Z = asm330_data.accel[2], .velX = 0, .velY = 0, .velZ = 0, .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .quaternion_q1 = ekf.qu_data[0], .quaternion_q2 = ekf.qu_data[1], .quaternion_q3 = ekf.qu_data[2], .quaternion_q4 = ekf.qu_data[3], .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS, .gps1_good = gps.gps_good };
 			send_rf_packet(STREAM_PACKET_TYPE_0, (uint8_t*) &pkt_0, sizeof(pkt_0));
 		} else {
@@ -2164,7 +2183,7 @@ void Extended_Kalman_Filter(void *argument) {
 		lastSampleTime = currentSampleTime;
 
 		// Extract gyroscopic data
-		if (1 /* TODO: Determine if asm330 is giving good data */) {
+		if (asm330.gyro_good) {
 			p = (float) (asm330_data.gyro[0]);
 			q = (float) (asm330_data.gyro[1]);
 			r = (float) (asm330_data.gyro[2]);
@@ -2177,7 +2196,7 @@ void Extended_Kalman_Filter(void *argument) {
 
 		if (update_index % correct_freq == 0 && ekf.do_update && state_machine_fc.flight_state == IDLE_ON_PAD) {
 			// Extract accelerometer data
-			if (0/*asm330.acc_good*//* TODO: Determine if asm330 is giving good data */) {
+			if (asm330.acc_good) {
 				ax = (float) (asm330_data.accel[0]);
 				ay = (float) (asm330_data.accel[1]);
 				az = (float) (asm330_data.accel[2]);
@@ -2222,6 +2241,58 @@ void CANopen(void *argument) {
 		osDelay(pdMS_TO_TICKS(1));
 	}
 	/* USER CODE END CANopen */
+}
+
+/* USER CODE BEGIN Header_sysMonitor */
+/**
+ * @brief Function implementing the sysMonitorTask thread.
+ * This function monitors the state of the system
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_sysMonitor */
+void sysMonitor(void *argument) {
+	/* USER CODE BEGIN sysMonitor */
+	while(!sensors_initialised) {
+		osDelay(1000);
+	}
+	/* Infinite loop */
+	for (;;) {
+		// Check if flags have been set by read operation
+		if (bmx055_data.accel_updated == false) {
+			bmx055.acc_good = false;
+		} else {
+			bmx055.acc_good = true;
+		}
+		if (bmx055_data.gyro_updated == false) {
+			bmx055.gyro_good = false;
+		} else {
+			bmx055.gyro_good = true;
+		}
+		if (bmx055_data.mag_updated == false) {
+			bmx055.mag_good = false;
+		} else {
+			bmx055.mag_good = true;
+		}
+		if (asm330_data.accel_updated == false) {
+			asm330.acc_good = false;
+		} else {
+			asm330.acc_good = false;
+		}
+		if (asm330_data.gyro_updated == false) {
+			asm330.gyro_good = false;
+		} else {
+			asm330.gyro_good = false;
+		}
+		// Reset flags
+		bmx055_data.accel_updated = false;
+		bmx055_data.gyro_updated = false;
+		bmx055_data.mag_updated = false;
+		asm330_data.accel_updated = false;
+		asm330_data.gyro_updated = false;
+		osDelay(100);
+	}
+	/* USER CODE END sysMonitor */
 }
 
 /**

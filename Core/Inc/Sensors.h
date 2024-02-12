@@ -8,6 +8,7 @@
 #ifndef INC_SENSORS_H_
 #define INC_SENSORS_H_
 #include <stdint.h>
+#include <stdbool.h>
 #include "stm32h7xx_hal.h"
 #include "cmsis_os.h"
 
@@ -23,19 +24,22 @@ typedef struct {
 	float accel[3];
 	float gyro[3];
 	float mag[3];
+	bool accel_updated;
+	bool gyro_updated;
+	bool mag_updated;
 }BMX055_Data_Handle;
 
 typedef struct {
 	float pressure;
 	float temperature;
 	float altitude;
-	uint32_t current_sample_time;
-	uint32_t last_sample_time;
 }MS5611_Data_Handle;
 
 typedef struct {
 	float accel[3];
 	float gyro[3];
+	bool accel_updated;
+	bool gyro_updated;
 }ASM330_Data_Handle;
 
 #define GPS_Buff_Size 1024

@@ -200,15 +200,15 @@ void BMX055_configuration(BMX055_Handle *bmx055) {
 	HAL_Delay(200);
 }
 
-float previous_acc_value = 0;
-uint8_t previous_acc_look_back_counter = 0;
-uint8_t invalid_acc_counter = 0;
-float previous_gyro_value = 0;
-uint8_t previous_gyro_look_back_counter = 0;
-uint8_t invalid_gyro_counter = 0;
-float previous_mag_value = 0;
-uint8_t previous_mag_look_back_counter = 0;
-uint8_t invalid_mag_counter = 0;
+float bmx055_previous_acc_value = 0;
+uint8_t bmx055_previous_acc_look_back_counter = 0;
+uint8_t bmx055_invalid_acc_counter = 0;
+float bmx055_previous_gyro_value = 0;
+uint8_t bmx055_previous_gyro_look_back_counter = 0;
+uint8_t bmx055_invalid_gyro_counter = 0;
+float bmx055_previous_mag_value = 0;
+uint8_t bmx055_previous_mag_look_back_counter = 0;
+uint8_t bmx055_invalid_mag_counter = 0;
 
 /**
  * @brief Read Accel
@@ -245,18 +245,18 @@ void BMX055_readAccel(BMX055_Handle *bmx055, float *accl) {
 	accl[2] = accel_read[2] * bmx055->acc_rescale;
 
 	/* Check accelerometer is functioning correctly */
-	if (accl[0] == previous_acc_value) {
-		invalid_acc_counter++;
+	if (accl[0] == bmx055_previous_acc_value) {
+		bmx055_invalid_acc_counter++;
 	} else {
-		invalid_acc_counter = 0;
+		bmx055_invalid_acc_counter = 0;
 	}
-	previous_acc_look_back_counter++;
+	bmx055_previous_acc_look_back_counter++;
 
-	if (previous_acc_look_back_counter > NUM_LOOK_BACK_CYCLES) {
-		previous_acc_value = accl[0];
-		invalid_acc_counter = 0;
+	if (bmx055_previous_acc_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		bmx055_previous_acc_value = accl[0];
+		bmx055_invalid_acc_counter = 0;
 	}
-	if (invalid_acc_counter > NUM_LOOK_BACK_CYCLES) {
+	if (bmx055_invalid_acc_counter > NUM_LOOK_BACK_CYCLES) {
 		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
 		bmx055->acc_good = false;
 	} else {
@@ -298,18 +298,18 @@ void BMX055_readGyro(BMX055_Handle *bmx055, float *gyro) {
 	gyro[2] = gyro_read[2] * bmx055->gyro_rescale * M_PI / 180;
 
 	/* Check gyroscope is functioning correctly */
-	if (gyro[0] == previous_gyro_value) {
-		invalid_gyro_counter++;
+	if (gyro[0] == bmx055_previous_gyro_value) {
+		bmx055_invalid_gyro_counter++;
 	} else {
-		invalid_gyro_counter = 0;
+		bmx055_invalid_gyro_counter = 0;
 	}
-	previous_gyro_look_back_counter++;
+	bmx055_previous_gyro_look_back_counter++;
 
-	if (previous_gyro_look_back_counter > NUM_LOOK_BACK_CYCLES) {
-		previous_gyro_value = gyro[0];
-		invalid_gyro_counter = 0;
+	if (bmx055_previous_gyro_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		bmx055_previous_gyro_value = gyro[0];
+		bmx055_invalid_gyro_counter = 0;
 	}
-	if (invalid_gyro_counter > NUM_LOOK_BACK_CYCLES) {
+	if (bmx055_invalid_gyro_counter > NUM_LOOK_BACK_CYCLES) {
 		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
 		bmx055->gyro_good = false;
 	} else {
@@ -349,18 +349,18 @@ void BMX055_readRawMag(BMX055_Handle *bmx055, float *mag) {
 	}
 
 	/* Check magnetometer is functioning correctly */
-	if (mag[0] == previous_mag_value) {
-		invalid_mag_counter++;
+	if (mag[0] == bmx055_previous_mag_value) {
+		bmx055_invalid_mag_counter++;
 	} else {
-		invalid_mag_counter = 0;
+		bmx055_invalid_mag_counter = 0;
 	}
-	previous_mag_look_back_counter++;
+	bmx055_previous_mag_look_back_counter++;
 
-	if (previous_mag_look_back_counter > NUM_LOOK_BACK_CYCLES) {
-		previous_mag_value = mag[0];
-		invalid_mag_counter = 0;
+	if (bmx055_previous_mag_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		bmx055_previous_mag_value = mag[0];
+		bmx055_invalid_mag_counter = 0;
 	}
-	if (invalid_mag_counter > NUM_LOOK_BACK_CYCLES) {
+	if (bmx055_invalid_mag_counter > NUM_LOOK_BACK_CYCLES) {
 		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
 		bmx055->mag_good = false;
 	} else {

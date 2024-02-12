@@ -42,4 +42,5 @@ void SD_write_mag_batch(uint8_t* mag_buffer, size_t mag_sz);
 void SD_write_baro_batch(uint8_t* baro_buffer, size_t baro_sz);
 void SD_write_gps_batch(uint8_t* gps_buffer, size_t gps_sz);
 void SD_write_sys_state_batch(uint8_t* sys_state_buffer, size_t sys_state_sz);
+void SD_write_ekf_batch(uint8_t *ekf_buffer, size_t ekf_sz);
 #endif /* INC_SD_H_ */
