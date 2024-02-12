@@ -169,8 +169,31 @@ FRESULT SD_write_headers() {
 		}
 		Non_Blocking_Error_Handler();
 	}
-	char sys_header[] = "timestamp(uS),flight state,drogue ematch status,main ematch status,launch time (mS), Launch altitude (m),drogue deploy time (mS),drogue deploy altitude(m),main deploy time(ms),main deploy altitude(m),landing time(ms), landing altitude(m),battery voltage (V)\n";
+	char sys_header[] = "timestamp(uS), flight state, drogue ematch status, main ematch status, launch time (mS), Launch altitude (m), Burnout altitude (m), Burnout time (ms), drogue deploy time (ms), drogue deploy altitude(m), main deploy time(ms), main deploy altitude(m), landing time(ms), landing altitude(m), battery voltage (V)\n";
 	res = f_write(&SDFile, sys_header, sizeof(sys_header), (void*) &byteswritten);
+
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		if (res == FR_LOCKED) {
+			return res;
+		}
+		Non_Blocking_Error_Handler();
+	} else {
+
+		f_close(&SDFile);
+	}
+	osDelay(10);
+
+	sprintf(fname, "%s/%s", directory_name, ekfDir);
+	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
+	osDelay(10);
+	if (res != FR_OK) {
+		if (res == FR_LOCKED) {
+			return res;
+		}
+		Non_Blocking_Error_Handler();
+	}
+	char ekf_header[] = "timstamp (us), q0(w), q1(x), q2(y), q3(z), update enabled\n";
+	res = f_write(&SDFile, sys_header, sizeof(ekf_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
 		if (res == FR_LOCKED) {
@@ -575,6 +598,22 @@ void SD_write_sys_state_batch(uint8_t *sys_state_buffer, size_t sys_state_sz) {
 		return res;
 	}
 	res = f_write(&SDFile, sys_state_buffer, sys_state_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		return res;
+	}
+}
+
+void SD_write_ekf_batch(uint8_t *ekf_buffer, size_t ekf_sz) {
+	uint32_t byteswritten;
+	// Write ekf data
+	char ekf_fname[32];
+	sprintf(ekf_fname, "%s/%s", directory_name, ekfDir);
+	FRESULT res = f_open(&SDFile, ekf_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		return res;
+	}
+	res = f_write(&SDFile, ekf_buffer, ekf_sz, (void*) &byteswritten);
 	f_close(&SDFile);
 	if ((byteswritten == 0) || (res != FR_OK)) {
 		return res;

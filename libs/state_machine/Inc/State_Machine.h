@@ -49,6 +49,9 @@ typedef enum armState {
 #define APOGEE_DETECT_VELOCITY_THRESHOLD	1.0f			// m/s
 #define ALTITUDE_LP_FILTER_CUTOFF_FREQ		10.0f			// Hz
 #define ALTITUDE_LP_FILTER_UPDATE_FREQ		100				// Hz
+#define ACCEL_LP_FILTER_UPDATE_FREQ			100				// Hz
+#define ACCEL_LP_FILTER_CUTOFF_FREQ			10.0f			// Hz
+#define APOGEE_DETECT_ACCEL_THRESHOLD		2.0				// g
 
 // Main deploy altitude detection constants
 #define MAIN_DEPLOY_ALTITUDE				300				// m above the starting altitude (ground)
@@ -83,6 +86,8 @@ typedef struct {
 
 	uint32_t launch_time;
 	float starting_altitude;
+	uint32_t burnout_time;
+	float burnout_altitude;
 	uint32_t drogue_deploy_time;
 	float drogue_deploy_altitude;
 	uint32_t main_deploy_time;

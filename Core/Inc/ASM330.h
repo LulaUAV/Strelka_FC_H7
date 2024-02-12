@@ -11,7 +11,9 @@
 #include <stdbool.h>
 #include "asm330lhhx_reg.h"
 #include "cmsis_os.h"
-#include "stm32h7xx_hal.h"
+#include "main.h"
+
+#define NUM_LOOK_BACK_CYCLES		10
 
 typedef struct {
 	SPI_HandleTypeDef *hspi;

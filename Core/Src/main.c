@@ -1634,6 +1634,9 @@ void State_Machine(void *argument) {
 	ExpLowPassFilter_t altitude_median_filter;
 	initExpLowPassFilter(&altitude_median_filter, ALTITUDE_LP_FILTER_UPDATE_FREQ, ALTITUDE_LP_FILTER_CUTOFF_FREQ, ms5611_data.altitude);
 
+	ExpLowPassFilter_t accel_low_pass_filter;
+	initExpLowPassFilter(&accel_low_pass_filter, ACCEL_LP_FILTER_UPDATE_FREQ, ACCEL_LP_FILTER_CUTOFF_FREQ, 0.0);
+
 	/*
 	 * Burnout detection:
 	 * The vehicle will detect burnout if ANY of these elements are satisfied:
@@ -1645,6 +1648,7 @@ void State_Machine(void *argument) {
 	 * Apogee detection:
 	 * The vehicle will detect apogee when the following element is satisfied:
 	 * 1. The vehicle is traveling at a velocity lower than APOGEE_DETECT_VELOCITY_THRESHOLD. This includes negative values.
+	 * 2. The magnitude of filtered acceleration read is below 2g.
 	 */
 	while (1) {
 		// Detect burnout with a timeout as back up
@@ -1666,6 +1670,8 @@ void State_Machine(void *argument) {
 			if (filtered_acceleration <= BURNOUT_ACCEL_THRESHOLD) {
 				// Register burnout
 				state_machine_fc.flight_state = BURNOUT;
+				state_machine_fc.burnout_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;;
+				state_machine_fc.burnout_altitude = ms5611_data.altitude;
 			}
 		}
 
@@ -1676,11 +1682,25 @@ void State_Machine(void *argument) {
 			float filtered_altitude = updateExpLowPassFilter(&altitude_median_filter, ms5611_data.altitude);
 			float vertical_velocity = (filtered_altitude - last_altitude) / dt;
 			updateMedianFilter(&apogee_median_filter, vertical_velocity, (float) pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS / 1000);
-
+			float ax2, ay2, az2;
+			// TODO: Determine why ASM330 fails occasionally
+			if (0/*asm330.acc_good*/) {
+				ax2 = asm330_data.accel[0] * asm330_data.accel[0];
+				ay2 = asm330_data.accel[1] * asm330_data.accel[1];
+				az2 = asm330_data.accel[2] * asm330_data.accel[2];
+			} else {
+				ax2 = bmx055_data.accel[0] * bmx055_data.accel[0];
+				ay2 = bmx055_data.accel[1] * bmx055_data.accel[1];
+				az2 = bmx055_data.accel[2] * bmx055_data.accel[2];
+			}
+			float acceleration_magnitude = sqrt(ax2 + ay2 + az2);
+			float filtered_accel = updateExpLowPassFilter(&accel_low_pass_filter, acceleration_magnitude);
 			if (apogee_median_filter.filledUp) {
 				float filtered_vertical_velocity = getMedianValue(apogee_median_filter.values, apogee_median_filter.size);
 				if (filtered_vertical_velocity <= APOGEE_DETECT_VELOCITY_THRESHOLD) {
-					break;
+					if (filtered_accel <= APOGEE_DETECT_ACCEL_THRESHOLD) {
+						break;
+					}
 				}
 			}
 			last_velocity_calculation_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
@@ -1947,9 +1967,7 @@ void Data_Logging(void *argument) {
 		Non_Blocking_Error_Handler();
 	}
 	SD_card.flash_good = true;
-	if (SD_card.flash_logging_enabled) {
-		SD_write_headers();
-	}
+	bool headers_written = false;
 
 //	SD_erase_disk();
 
@@ -1966,18 +1984,23 @@ void Data_Logging(void *argument) {
 	xLastWakeTime = xTaskGetTickCount();
 
 	// Variables to store size of each write within each group
-	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0;
+	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0, ekf_write_sz = 0;
 
 	// Buffers to store grouped write data
-	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS];
+	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS], ekf_buffer[_MAX_SS];
 
 	// Variables to store amount written in each group
-	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0;
+	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0, ekf_sz;
 	size_t prefill_counter = 0;
 
 	const uint8_t max_batch_size = 100;
 	for (;;) {
 		if (SD_card.flash_logging_enabled) {
+			// Write headers if not done already
+			if (!headers_written) {
+				SD_write_headers();
+				headers_written = true;
+			}
 			vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
 			// Append data to buffer arrays
@@ -2003,6 +2026,11 @@ void Data_Logging(void *argument) {
 					baro_sz += baro_write_sz;
 				} else
 					prefill_counter = max_batch_size;
+				if (ekf_sz <= sizeof(ekf_buffer) - ekf_write_sz) {
+					ekf_write_sz = snprintf((char*) &ekf_buffer[baro_sz], sizeof(ekf_buffer) - ekf_sz, "%.0lu,%.3f,%.3f,%.3f\n", micros(), ekf.qu_data[0], ekf.qu_data[1], ekf.qu_data[2], ekf.qu_data[3], ekf.do_update);
+					ekf_sz += ekf_write_sz;
+				} else
+					prefill_counter = max_batch_size;
 
 				// Low speed writing at 1/20 write speed
 				if (prefill_counter % 20 == 0) {
@@ -2021,7 +2049,7 @@ void Data_Logging(void *argument) {
 					} else
 						prefill_counter = max_batch_size;
 					if (sys_state_sz <= sizeof(sys_state_buffer) - sys_state_write_sz) {
-						sys_state_write_sz = snprintf((char*) &sys_state_buffer[sys_state_sz], sizeof(sys_state_buffer) - sys_state_sz, "%.0lu,%d,%d,%d,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f\r\n", micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.starting_altitude, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, calculateBatteryVoltage(&hadc1));
+						sys_state_write_sz = snprintf((char*) &sys_state_buffer[sys_state_sz], sizeof(sys_state_buffer) - sys_state_sz, "%.0lu,%d,%d,%d,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%.0lu,%0.2f,%0.2f\r\n", micros(), state_machine_fc.flight_state, state_machine_fc.drogue_ematch_state, state_machine_fc.main_ematch_state, state_machine_fc.launch_time, state_machine_fc.starting_altitude, state_machine_fc.burnout_time, state_machine_fc.burnout_altitude, state_machine_fc.drogue_deploy_time, state_machine_fc.drogue_deploy_altitude, state_machine_fc.main_deploy_time, state_machine_fc.main_deploy_altitude, state_machine_fc.landing_time, state_machine_fc.landing_altitude, calculateBatteryVoltage(&hadc1));
 						sys_state_sz += sys_state_write_sz;
 					} else
 						prefill_counter = max_batch_size;
@@ -2048,6 +2076,9 @@ void Data_Logging(void *argument) {
 				// Write sys_state data
 				SD_write_sys_state_batch(sys_state_buffer, sys_state_sz);
 
+				// Write ekf data
+				SD_write_ekf_batch(ekf_buffer, ekf_sz);
+
 				prefill_counter = 0;
 				accel_sz = 0;
 				gyro_sz = 0;
@@ -2055,6 +2086,7 @@ void Data_Logging(void *argument) {
 				baro_sz = 0;
 				gps_sz = 0;
 				sys_state_sz = 0;
+				ekf_sz = 0;
 			}
 		} else {
 			osDelay(1000);
@@ -2145,7 +2177,7 @@ void Extended_Kalman_Filter(void *argument) {
 
 		if (update_index % correct_freq == 0 && ekf.do_update && state_machine_fc.flight_state == IDLE_ON_PAD) {
 			// Extract accelerometer data
-			if (0/*asm330.acc_good*/ /* TODO: Determine if asm330 is giving good data */) {
+			if (0/*asm330.acc_good*//* TODO: Determine if asm330 is giving good data */) {
 				ax = (float) (asm330_data.accel[0]);
 				ay = (float) (asm330_data.accel[1]);
 				az = (float) (asm330_data.accel[2]);

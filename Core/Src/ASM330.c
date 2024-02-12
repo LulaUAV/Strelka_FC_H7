@@ -74,72 +74,121 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 	return 0;
 }
 
+float previous_acc_value;
+uint8_t previous_acc_look_back_counter;
+uint8_t invalid_acc_counter;
+float previous_gyro_value;
+uint8_t previous_gyro_look_back_counter;
+uint8_t invalid_gyro_counter;
+
 uint8_t ASM330_readAccel(ASM330_handle *asm330, float *accel) {
 	static int16_t data_raw_acceleration[3];
 	asm330lhhx_acceleration_raw_get(&asm330->dev_ctx, data_raw_acceleration);
-
+	uint8_t ret = 1;
 	switch (asm330->accel_scale) {
 	case ASM330LHHX_2g:
 		accel[0] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs2g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 0;
+		ret = 0;
 	case ASM330LHHX_4g:
 		accel[0] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs4g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 0;
+		ret = 0;
 	case ASM330LHHX_8g:
 		accel[0] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs8g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 0;
+		ret = 0;
 	case ASM330LHHX_16g:
 		accel[0] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[0]) / 1000.0;
 		accel[1] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[1]) / 1000.0;
 		accel[2] = asm330lhhx_from_fs16g_to_mg(data_raw_acceleration[2]) / 1000.0;
-		return 0;
+		ret = 0;
 	}
-	return 1;
+
+	/* Check accelerometer is functioning correctly */
+	if(accel[0] == previous_acc_value) {
+		invalid_acc_counter++;
+	}
+	else {
+		invalid_acc_counter = 0;
+	}
+	previous_acc_look_back_counter++;
+
+	if(previous_acc_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		previous_acc_value = accel[0];
+		invalid_acc_counter = 0;
+	}
+	if(invalid_acc_counter > NUM_LOOK_BACK_CYCLES) {
+		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
+		asm330->acc_good = false;
+	}
+	else {
+		asm330->acc_good = true;
+	}
+	return ret;
 }
 
 uint8_t ASM330_readGyro(ASM330_handle *asm330, float *gyro) {
 	static int16_t data_raw_angular_rate[3];
 	asm330lhhx_angular_rate_raw_get(&asm330->dev_ctx, data_raw_angular_rate);
-
+	uint8_t ret = 1;
 	// Convert from md/s to rad/s
 	switch (asm330->gyro_scale) {
 	case ASM330LHHX_125dps:
 		gyro[0] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs125dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	case ASM330LHHX_250dps:
 		gyro[0] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs250dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	case ASM330LHHX_500dps:
 		gyro[0] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs500dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	case ASM330LHHX_1000dps:
 		gyro[0] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs1000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	case ASM330LHHX_2000dps:
 		gyro[0] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs2000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	case ASM330LHHX_4000dps:
 		gyro[0] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[0]) * 0.0000174533;
 		gyro[1] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[1]) * 0.0000174533;
 		gyro[2] = asm330lhhx_from_fs4000dps_to_mdps(data_raw_angular_rate[2]) * 0.0000174533;
-		return 1;
+		ret = 0;
 	}
+	/* Check gyroscope is functioning correctly */
+	if(gyro[0] == previous_gyro_value) {
+		invalid_gyro_counter++;
+	}
+	else {
+		invalid_gyro_counter = 0;
+	}
+	previous_gyro_look_back_counter++;
+
+	if(previous_gyro_look_back_counter > NUM_LOOK_BACK_CYCLES) {
+		previous_gyro_value = gyro[0];
+		invalid_gyro_counter = 0;
+	}
+	if(invalid_gyro_counter > NUM_LOOK_BACK_CYCLES) {
+		// Last NUM_LOOK_BACK_CYCLES readings have been identical. Sensor is not updating
+		asm330->gyro_good = false;
+	}
+	else {
+		asm330->gyro_good = true;
+	}
+	return ret;
 }
 
 /*

@@ -20,9 +20,7 @@
  extern "C" {
 #endif
 
- /* Select the relevent includes for your STM32 hardware version */
-//#include "stm32f4xx_hal.h"
-#include "stm32h7xx_hal.h"
+#include "main.h"
 
 //#include "cmsis_os.h"
 #include <stdint.h>
@@ -31,6 +29,8 @@
 #include <string.h>
 #include "arm_math.h"
 #include <math.h>
+
+#define NUM_LOOK_BACK_CYCLES				10
 
 /// @name BMX055 Accelerometer Calibration
 /// @{
