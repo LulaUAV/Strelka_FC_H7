@@ -151,8 +151,23 @@ double MS5611_readTemperature(MS5611_Handle* ms5611, bool compensation) {
 
 // Calculate altitude from Pressure & Sea level pressure
 double MS5611_getAltitude(double pressure, double seaLevelPressure) {
-
-    return (44330.0f * (1.0f - pow((double)pressure / (double)seaLevelPressure, 0.1902949f)));
+	// Implementation of the International Standard Atmosphere model. https://en.wikipedia.org/wiki/International_Standard_Atmosphere
+	if(pressure >= 22632) {
+		// Pressure reading was taken in troposphere
+		return (44330.0f * (1.0f - pow((double)pressure / (double)seaLevelPressure, 0.1902949f)));
+	}
+	else if(pressure < 22632 && pressure >= 5474.9) {
+		// Pressure reading was taken in the tropopause
+		return (11000 - 6339.165749*log(pressure/22632));
+	}
+	else if(pressure < 5474.9 && pressure >= 868.02) {
+		// Pressure reading was taken in the lower stratosphere
+		return (11019.10828 - 6369.426752*log(pressure/22650));
+	}
+	else {
+		// Pressure reading was taken in the upper stratosphere
+		return (pow((pressure/2488), 0.08781173165)*72441.47157 - 47454.8495);
+	}
 }
 
 // Calculate sea level from Pressure given on specific altitude
