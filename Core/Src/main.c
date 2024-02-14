@@ -185,6 +185,7 @@ SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 20, .flash_logging
 ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
 Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .drogue_arm_state = DISARMED, .main_arm_state = DISARMED, .transmit_gps = true, .sensor_state = &sensor_state, };
+State_Machine_Internal_State_t internal_state_fc;	// System state internal state for debug logging
 GPS_Tracking_Handle gps_tracker = { .tracking_enabled = false, .chirp_frequency = 1 };
 stream_packet_config_set packet_streamer = { .stream_packet_type_enabled = 10, .packet_stream_frequency = 1.0 };
 EKF ekf = { .do_update = true, };
@@ -1495,13 +1496,16 @@ void handle_payload_data(uint8_t identifier, uint8_t *payload_data) {
 		case 0:
 			float available_flash_memory_kB;
 			SD_get_free_space_kB(&available_flash_memory_kB);
-			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = state_machine_fc.drogue_arm_state, .arm_main_state = state_machine_fc.main_arm_state, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = calculateBatteryVoltage(&hadc1), .drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8), .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_9), .stream_packet_type_enabled = packet_streamer.stream_packet_type_enabled, .packet_stream_frequency = packet_streamer.packet_stream_frequency, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS, .flash_logging_enabled = SD_card.flash_logging_enabled, .flight_state = state_machine_fc.flight_state, };
+			system_state_packet_type_0_res response_packet = { .acc1X = bmx055_data.accel[0], .acc1Y = bmx055_data.accel[1], .acc1Z = bmx055_data.accel[2], .acc1_good = bmx055.acc_good, .acc2X = asm330_data.accel[0], .acc2Y = asm330_data.accel[0], .acc2Z = asm330_data.accel[0], .acc2_good = asm330.acc_good, .arm_drogue_state = state_machine_fc.drogue_arm_state, .arm_main_state = state_machine_fc.main_arm_state, .available_flash_memory = available_flash_memory_kB, .baro1_altitude = ms5611_data.altitude, .baro1_good = ms5611.baro_good, .baro1_pressure = ms5611_data.pressure, .baro1_temperature = ms5611_data.temperature, .battery_voltage = calculateBatteryVoltage(&hadc1), .drogue_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_8), .flash_good = SD_card.flash_good, .flash_write_speed = SD_card.log_frequency, .gps1_good = gps.gps_good, .gps1_latitude = minmea_tocoord(&gps.gga_frame.latitude), .gps1_longitude = minmea_tocoord(&gps.gga_frame.longitude), .gps1_satellites_tracked = gps.gga_frame.satellites_tracked, .gps_tracking_chirp_frequency = gps_tracker.chirp_frequency, .gps_tracking_enabled = gps_tracker.tracking_enabled, .gyro1X = bmx055_data.gyro[0], .gyro1Y = bmx055_data.gyro[1], .gyro1Z = bmx055_data.gyro[2], .gyro1_good = bmx055.gyro_good, .gyro2X = asm330_data.gyro[0], .gyro2Y = asm330_data.gyro[1], .gyro2Z = asm330_data.gyro[2], .gyro2_good = asm330.gyro_good, .heart_beat_chirp_frequency = 0/*TODO*/, .heart_beat_enabled = 0/*TODO*/, .mag1X = bmx055_data.mag[0], .mag1Y = bmx055_data.mag[1], .mag1Z = bmx055_data.mag[2], .mag1_good = bmx055.mag_good, .main_ematch_state = test_continuity(&hadc1, DROGUE_L_GPIO_Port, DROGUE_L_Pin, ADC_CHANNEL_9), .stream_packet_type_enabled = packet_streamer.stream_packet_type_enabled, .packet_stream_frequency = packet_streamer.packet_stream_frequency, .timestamp = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS, .flash_logging_enabled = SD_card.flash_logging_enabled, .flight_state = state_machine_fc.flight_state, };
 			send_rf_packet(SYSTEM_STATE_PACKET_TYPE_0_RES, (uint8_t*) &response_packet, sizeof(response_packet));
 			break;
 		default:
 			break;
 		}
 		break;
+	case SYSTEM_REBOOT_REQ:
+		// Reboot system
+		HAL_NVIC_SystemReset();
 	}
 }
 
@@ -1600,6 +1604,7 @@ void State_Machine(void *argument) {
 		float angle_from_vertical;
 		uint8_t result = calculate_attitude_error(&ekf.qu, &up_vec, &angle_from_vertical, &normal_vector);
 		if (!result) {
+			internal_state_fc.angle_from_vertical = angle_from_vertical;
 			if (angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD) || M_PI - angle_from_vertical <= DEG_TO_RAD(PITCH_OVER_ANGLE_THRESHOLD)) {
 				// Rocket is in a suitable orientation to detect launch
 				float ax2, ay2, az2;
@@ -1618,6 +1623,7 @@ void State_Machine(void *argument) {
 				if (launch_median_filter.filledUp) {
 					// Filter has been filled with valid values
 					float filtered_acceleration = getMedianValue(launch_median_filter.values, (size_t) launch_median_filter.size);
+					internal_state_fc.filtered_launch_detect_accel = filtered_acceleration;
 					if (filtered_acceleration >= LAUNCH_ACCEL_THRESHOLD) {
 						break;
 					}
@@ -1680,11 +1686,11 @@ void State_Machine(void *argument) {
 		if (launch_median_filter.filledUp) {
 			// Filter has been filled with valid values
 			float filtered_acceleration = getMedianValue(burnout_median_filter.values, (size_t) burnout_median_filter.size);
+			internal_state_fc.filtered_burnout_detect_x_axis_accel = filtered_acceleration;
 			if (filtered_acceleration <= BURNOUT_ACCEL_THRESHOLD) {
 				// Register burnout
 				state_machine_fc.flight_state = BURNOUT;
 				state_machine_fc.burnout_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
-				;
 				state_machine_fc.burnout_altitude = ms5611_data.altitude;
 			}
 		}
@@ -1711,6 +1717,9 @@ void State_Machine(void *argument) {
 			float filtered_accel = updateExpLowPassFilter(&accel_low_pass_filter, acceleration_magnitude);
 			if (apogee_median_filter.filledUp) {
 				float filtered_vertical_velocity = getMedianValue(apogee_median_filter.values, apogee_median_filter.size);
+				internal_state_fc.filtered_apogee_detect_vertical_velocity = internal_state_fc.filtered_apogee_detect_vertical_velocity;
+				internal_state_fc.filtered_apogee_detect_accel = filtered_accel;
+				internal_state_fc.filtered_apogee_detect_altitude = filtered_altitude;
 				if (filtered_vertical_velocity <= APOGEE_DETECT_VELOCITY_THRESHOLD) {
 					if (filtered_accel <= APOGEE_DETECT_ACCEL_THRESHOLD) {
 						break;
@@ -1737,6 +1746,7 @@ void State_Machine(void *argument) {
 	 */
 	while (1) {
 		float altitude_agl = ms5611_data.altitude - state_machine_fc.starting_altitude;
+		internal_state_fc.unfiltered_main_detect_agl_altitude = altitude_agl;
 		if (altitude_agl <= MAIN_DEPLOY_ALTITUDE) {
 			break;
 		}
@@ -1770,6 +1780,7 @@ void State_Machine(void *argument) {
 
 			if (landing_median_filter.filledUp) {
 				float filtered_vertical_velocity = getMedianValue(landing_median_filter.values, landing_median_filter.size);
+				internal_state_fc.filtered_landing_detect_vertical_velocity = filtered_vertical_velocity;
 				if (fabs(filtered_vertical_velocity) <= LANDING_SPEED_THRESHOLD) {
 					break;
 				}
@@ -2003,13 +2014,13 @@ void Data_Logging(void *argument) {
 	xLastWakeTime = xTaskGetTickCount();
 
 	// Variables to store size of each write within each group
-	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0, ekf_write_sz = 0;
+	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0, ekf_write_sz = 0, internal_sm_write_sz = 0;
 
 	// Buffers to store grouped write data
-	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS], ekf_buffer[_MAX_SS];
+	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS], ekf_buffer[_MAX_SS], internal_sm_buffer[_MAX_SS];
 
 	// Variables to store amount written in each group
-	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0, ekf_sz;
+	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0, ekf_sz, internal_sm_sz;
 	size_t prefill_counter = 0;
 
 	const uint8_t max_batch_size = 100;
@@ -2046,8 +2057,13 @@ void Data_Logging(void *argument) {
 				} else
 					prefill_counter = max_batch_size;
 				if (ekf_sz <= sizeof(ekf_buffer) - ekf_write_sz) {
-					ekf_write_sz = snprintf((char*) &ekf_buffer[baro_sz], sizeof(ekf_buffer) - ekf_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%d\n", micros(), ekf.qu_data[0], ekf.qu_data[1], ekf.qu_data[2], ekf.qu_data[3], ekf.do_update);
+					ekf_write_sz = snprintf((char*) &ekf_buffer[ekf_sz], sizeof(ekf_buffer) - ekf_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%d\n", micros(), ekf.qu_data[0], ekf.qu_data[1], ekf.qu_data[2], ekf.qu_data[3], ekf.do_update);
 					ekf_sz += ekf_write_sz;
+				} else
+					prefill_counter = max_batch_size;
+				if (internal_sm_sz <= sizeof(internal_sm_buffer) - internal_sm_write_sz) {
+					internal_sm_write_sz = snprintf((char*) &internal_sm_buffer[internal_sm_sz], sizeof(internal_sm_buffer) - internal_sm_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", micros(), internal_state_fc.angle_from_vertical, internal_state_fc.filtered_launch_detect_accel, internal_state_fc.filtered_burnout_detect_x_axis_accel, internal_state_fc.filtered_apogee_detect_altitude, internal_state_fc.filtered_apogee_detect_vertical_velocity, internal_state_fc.filtered_apogee_detect_accel, internal_state_fc.unfiltered_main_detect_agl_altitude, internal_state_fc.filtered_landing_detect_vertical_velocity);
+					internal_sm_sz += internal_sm_write_sz;
 				} else
 					prefill_counter = max_batch_size;
 
@@ -2098,6 +2114,9 @@ void Data_Logging(void *argument) {
 				// Write ekf data
 				SD_write_ekf_batch(ekf_buffer, ekf_sz);
 
+				// Write internal state machine data
+				SD_write_internal_state_machine_batch(internal_sm_buffer, internal_sm_sz);
+
 				prefill_counter = 0;
 				accel_sz = 0;
 				gyro_sz = 0;
@@ -2106,6 +2125,7 @@ void Data_Logging(void *argument) {
 				gps_sz = 0;
 				sys_state_sz = 0;
 				ekf_sz = 0;
+				internal_sm_sz = 0;
 			}
 		} else {
 			osDelay(1000);
@@ -2253,7 +2273,7 @@ void CANopen(void *argument) {
 /* USER CODE END Header_sysMonitor */
 void sysMonitor(void *argument) {
 	/* USER CODE BEGIN sysMonitor */
-	while(!sensors_initialised) {
+	while (!sensors_initialised) {
 		osDelay(1000);
 	}
 	/* Infinite loop */
@@ -2277,12 +2297,12 @@ void sysMonitor(void *argument) {
 		if (asm330_data.accel_updated == false) {
 			asm330.acc_good = false;
 		} else {
-			asm330.acc_good = false;
+			asm330.acc_good = true;
 		}
 		if (asm330_data.gyro_updated == false) {
 			asm330.gyro_good = false;
 		} else {
-			asm330.gyro_good = false;
+			asm330.gyro_good = true;
 		}
 		// Reset flags
 		bmx055_data.accel_updated = false;

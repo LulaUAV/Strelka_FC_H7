@@ -101,6 +101,19 @@ typedef struct {
 	bool transmit_gps;
 } System_State_FC_t;
 
+// A struct used to store internal state information of the state machine
+// Used for debugging and logging of data
+typedef struct  {
+	float angle_from_vertical;
+	float filtered_launch_detect_accel;
+	float filtered_burnout_detect_x_axis_accel;
+	float filtered_apogee_detect_altitude;
+	float filtered_apogee_detect_vertical_velocity;
+	float filtered_apogee_detect_accel;
+	float unfiltered_main_detect_agl_altitude;
+	float filtered_landing_detect_vertical_velocity;
+} State_Machine_Internal_State_t;
+
 uint8_t calculate_attitude_error(arm_matrix_instance_f32 *current_vec, arm_matrix_instance_f32 *desired_vec, float *theta, arm_matrix_instance_f32 *normal_vector);
 uint8_t EP2C(arm_matrix_instance_f32 *qu, arm_matrix_instance_f32 *dir_cos);
 uint8_t vector_cross_product(arm_matrix_instance_f32 *a, arm_matrix_instance_f32 *b, arm_matrix_instance_f32 *res);

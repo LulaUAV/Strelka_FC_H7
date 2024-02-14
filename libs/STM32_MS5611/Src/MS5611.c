@@ -71,7 +71,7 @@ void MS5611_readPROM(MS5611_Handle *ms5611) {
 uint32_t MS5611_readRawTemperature(MS5611_Handle *ms5611) {
 
 	MS5611_sendCommand(ms5611, MS5611_CMD_CONV_D2 + ms5611->uosr);
-	HAL_Delay(ms5611->conversion_time);
+	osDelay(ms5611->conversion_time);
 
 	uint32_t data;
 	MS5611_readRegister24(ms5611, MS5611_CMD_ADC_READ, &data);
@@ -82,7 +82,7 @@ uint32_t MS5611_readRawPressure(MS5611_Handle *ms5611) {
 
 	MS5611_sendCommand(ms5611, MS5611_CMD_CONV_D1 + ms5611->uosr);
 
-	HAL_Delay(ms5611->conversion_time);
+	osDelay(ms5611->conversion_time);
 
 	uint32_t data;
 	MS5611_readRegister24(ms5611, MS5611_CMD_ADC_READ, &data);

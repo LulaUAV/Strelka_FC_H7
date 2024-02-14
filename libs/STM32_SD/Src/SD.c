@@ -16,6 +16,7 @@ char magDir[] = "mag.csv";
 char systemStateDir[] = "sys.csv";
 char ekfDir[] = "ekf.csv";
 char streamDir[] = "stream.dat";
+char internal_smDir[] = "internal_sm.csv";
 const TickType_t xFrequency;
 
 FRESULT SD_init() {
@@ -193,7 +194,42 @@ FRESULT SD_write_headers() {
 		Non_Blocking_Error_Handler();
 	}
 	char ekf_header[] = "timstamp (us), q0(w), q1(x), q2(y), q3(z), update enabled\n";
-	res = f_write(&SDFile, sys_header, sizeof(ekf_header), (void*) &byteswritten);
+	res = f_write(&SDFile, ekf_header, sizeof(ekf_header), (void*) &byteswritten);
+
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		if (res == FR_LOCKED) {
+			return res;
+		}
+		Non_Blocking_Error_Handler();
+	} else {
+
+		f_close(&SDFile);
+	}
+	osDelay(10);
+
+	sprintf(fname, "%s/%s", directory_name, internal_smDir);
+	res = f_open(&SDFile, fname, FA_OPEN_APPEND | FA_WRITE);
+	osDelay(10);
+	if (res != FR_OK) {
+		if (res == FR_LOCKED) {
+			return res;
+		}
+		Non_Blocking_Error_Handler();
+	}
+
+	typedef struct  {
+		float angle_from_vertical;
+		float filtered_launch_detect_accel;
+		float filtered_burnout_detect_x_axis_accel;
+		float filtered_apogee_detect_altitude;
+		float filtered_apogee_detect_vertical_velocity;
+		float filtered_apogee_detect_accel;
+		float unfiltered_main_detect_agl_altitude;
+		float filtered_landing_detect_vertical_velocity;
+	} State_Machine_Internal_State_t;
+
+	char internal_sm_header[] = "Timestamp (ms), Angle from vertical (rad), Filtered launch detection acceleration (g), Filtered burnout detection x acceleration (g), Filtered apogee detection altitude (m), Filtered apogee detection vertical velocity (m/s), Filtered apogee detection acceleration (g), Unfiltered main detection agl altitude (m), Filtered landing detection vertical velocity (m)\n";
+	res = f_write(&SDFile, internal_sm_header, sizeof(internal_sm_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
 		if (res == FR_LOCKED) {
@@ -614,6 +650,22 @@ void SD_write_ekf_batch(uint8_t *ekf_buffer, size_t ekf_sz) {
 		return res;
 	}
 	res = f_write(&SDFile, ekf_buffer, ekf_sz, (void*) &byteswritten);
+	f_close(&SDFile);
+	if ((byteswritten == 0) || (res != FR_OK)) {
+		return res;
+	}
+}
+
+void SD_write_internal_state_machine_batch(uint8_t *internal_sm_buffer, size_t internal_sm_sz) {
+	uint32_t byteswritten;
+	// Write internal state machine data
+	char internal_sm_fname[32];
+	sprintf(internal_sm_fname, "%s/%s", directory_name, internal_smDir);
+	FRESULT res = f_open(&SDFile, internal_sm_fname, FA_OPEN_APPEND | FA_WRITE);
+	if (res != FR_OK) {
+		return res;
+	}
+	res = f_write(&SDFile, internal_sm_buffer, internal_sm_sz, (void*) &byteswritten);
 	f_close(&SDFile);
 	if ((byteswritten == 0) || (res != FR_OK)) {
 		return res;
