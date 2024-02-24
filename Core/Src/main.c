@@ -168,7 +168,7 @@ void sysMonitor(void *argument);
 enum debug_level dbg_level = INFO;
 enum debug_level dbg;
 
-BMX055_Handle bmx055 = { .hspi = &hspi2, .acc_CS_port = SPI2_NSS1_GPIO_Port, .acc_CS_pin = SPI2_NSS1_Pin, .acc_range = BMX055_ACC_RANGE_8, .acc_bandwidth = BMX055_ACC_PMU_BW_62_5, .gyro_CS_port = SPI2_NSS2_GPIO_Port, .gyro_CS_pin = SPI2_NSS2_Pin, .gyro_range = BMX055_GYRO_RANGE_32_8, .gyro_bandwidth = BMX055_GYRO_BW_64, .mag_CS_port = SPI2_NSS3_GPIO_Port, .mag_CS_pin = SPI2_NSS3_Pin, .mag_data_rate = BMX055_MAG_DATA_RATE_30,
+BMX055_Handle bmx055 = { .hspi = &hspi2, .acc_CS_port = SPI2_NSS1_GPIO_Port, .acc_CS_pin = SPI2_NSS1_Pin, .acc_range = BMX055_ACC_RANGE_16, .acc_bandwidth = BMX055_ACC_PMU_BW_62_5, .gyro_CS_port = SPI2_NSS2_GPIO_Port, .gyro_CS_pin = SPI2_NSS2_Pin, .gyro_range = BMX055_GYRO_RANGE_32_8, .gyro_bandwidth = BMX055_GYRO_BW_64, .mag_CS_port = SPI2_NSS3_GPIO_Port, .mag_CS_pin = SPI2_NSS3_Pin, .mag_data_rate = BMX055_MAG_DATA_RATE_30,
 
 };
 bool sensors_initialised;
@@ -181,8 +181,8 @@ GPS_Handle gps = { .gps_good = false, .gps_buffer = { 0 } };
 LoRa LoRa_Handle;
 MS5611_Handle ms5611 = { .hspi = &hspi4, .baro_CS_port = SPI4_NSS_GPIO_Port, .baro_CS_pin = SPI4_NSS_Pin, };
 ms5611_osr_t osr = MS5611_ULTRA_HIGH_RES;
-SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 20, .flash_logging_enabled = false };
-ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_8g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
+SD_Handle_t SD_card = { .flash_good = false, .log_frequency = 20, .flash_logging_enabled = true };
+ASM330_handle asm330 = { .hspi = &hspi2, .CS_GPIO_Port = SPI2_NSS4_GPIO_Port, .CS_Pin = SPI2_NSS4_Pin, .accel_odr = ASM330LHHX_XL_ODR_6667Hz, .accel_scale = ASM330LHHX_16g, .gyro_odr = ASM330LHHX_GY_ODR_6667Hz, .gyro_scale = ASM330LHHX_4000dps, .acc_good = false, .gyro_good = false, };
 Sensor_State sensor_state = { .asm330_acc_good = (bool*) &asm330.acc_good, .asm330_gyro_good = (bool*) &asm330.gyro_good, .bmx055_acc_good = &bmx055.acc_good, .bmx055_gyro_good = &bmx055.gyro_good, .bmx055_mag_good = &bmx055.mag_good, .flash_good = &SD_card.flash_good, .gps_good = &gps.gps_good, .lora_good = &LoRa_Handle.lora_good, .ms5611_good = &ms5611.baro_good, };
 System_State_FC_t state_machine_fc = { .drogue_arm_state = DISARMED, .main_arm_state = DISARMED, .transmit_gps = true, .sensor_state = &sensor_state, };
 State_Machine_Internal_State_t internal_state_fc;	// System state internal state for debug logging
@@ -1567,6 +1567,19 @@ void State_Machine(void *argument) {
 		osDelay(10);
 	}
 
+	// Report power up over buzzer
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
+	osDelay(100);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+	osDelay(100);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
+	osDelay(100);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+	osDelay(100);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_SET);
+	osDelay(200);
+	HAL_GPIO_WritePin(BUZZER_GPIO_Port, BUZZER_Pin, GPIO_PIN_RESET);
+
 	state_machine_fc.flight_state = IDLE_ON_PAD;
 	state_machine_fc.starting_altitude = ms5611_data.altitude;
 
@@ -1639,6 +1652,35 @@ void State_Machine(void *argument) {
 	state_machine_fc.drogue_arm_state = ARMED;
 	state_machine_fc.main_arm_state = ARMED;
 	state_machine_fc.launch_time = pdMS_TO_TICKS(xTaskGetTickCount()) * portTICK_PERIOD_MS;
+
+	// Average 20 accelerometer readings to determine to vertical axis (experiencing +ve acceleration during launch)
+	float acc_sum = 0;
+
+	for (int i=0; i<20; i++) {
+		float ax = 0;
+		if (asm330.acc_good) {
+			ax = asm330_data.accel[0];
+		}
+		else {
+			ax = bmx055_data.accel[0];
+		}
+		acc_sum += ax;
+	}
+	acc_sum /= 20;
+
+	// Define variable to invert (or not) the X axis accelerometer readings so that it is consistent for flight computer mounted X axis forward or aft
+	float burnout_axis_sign = 1;
+	if(acc_sum <= 0) {
+		// Flight computer is oriented with +ve X axis pointing aft
+		// Burnout will be detected with a +ve X axis acceleration reading
+		burnout_axis_sign = -1;
+	}
+	else {
+		// Flight computer is oriented with +ve X axis pointing forward
+		// Burnout will be detected with a -ve X axis acceleration reading
+		burnout_axis_sign = 1;
+	}
+
 	// Disable Kalman Filter update step
 	ekf.do_update = false;
 
@@ -1678,15 +1720,16 @@ void State_Machine(void *argument) {
 		}
 		float ax;
 		if (asm330.acc_good) {
-			ax = asm330_data.accel[0];
+			ax = burnout_axis_sign * asm330_data.accel[0];
 		} else {
-			ax = bmx055_data.accel[0];
+			ax = burnout_axis_sign * bmx055_data.accel[0];
 		}
 		updateMedianFilter(&burnout_median_filter, ax, (float) HAL_GetTick() / 1000.0);
 		if (launch_median_filter.filledUp) {
 			// Filter has been filled with valid values
 			float filtered_acceleration = getMedianValue(burnout_median_filter.values, (size_t) burnout_median_filter.size);
 			internal_state_fc.filtered_burnout_detect_x_axis_accel = filtered_acceleration;
+			// -ve X axis accelerometer reading corresponds to burnout
 			if (filtered_acceleration <= BURNOUT_ACCEL_THRESHOLD) {
 				// Register burnout
 				state_machine_fc.flight_state = BURNOUT;
@@ -2020,7 +2063,7 @@ void Data_Logging(void *argument) {
 	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS], ekf_buffer[_MAX_SS], internal_sm_buffer[_MAX_SS];
 
 	// Variables to store amount written in each group
-	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0, ekf_sz, internal_sm_sz;
+	size_t accel_sz = 0, gyro_sz = 0, mag_sz = 0, baro_sz = 0, gps_sz = 0, sys_state_sz = 0, ekf_sz = 0, internal_sm_sz = 0;
 	size_t prefill_counter = 0;
 
 	const uint8_t max_batch_size = 100;

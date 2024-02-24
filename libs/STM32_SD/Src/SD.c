@@ -16,7 +16,7 @@ char magDir[] = "mag.csv";
 char systemStateDir[] = "sys.csv";
 char ekfDir[] = "ekf.csv";
 char streamDir[] = "stream.dat";
-char internal_smDir[] = "internal_sm.csv";
+char internal_smDir[] = "int_sm.csv";
 const TickType_t xFrequency;
 
 FRESULT SD_init() {
@@ -170,7 +170,7 @@ FRESULT SD_write_headers() {
 		}
 		Non_Blocking_Error_Handler();
 	}
-	char sys_header[] = "timestamp(uS), flight state, drogue ematch status, main ematch status, launch time (mS), Launch altitude (m), Burnout altitude (m), Burnout time (ms), drogue deploy time (ms), drogue deploy altitude(m), main deploy time(ms), main deploy altitude(m), landing time(ms), landing altitude(m), battery voltage (V)\n";
+	char sys_header[] = "timestamp(uS), flight state, drogue ematch status, main ematch status, launch time (mS), Launch altitude (m), Burnout time (ms), Burnout altitude (m), drogue deploy time (ms), drogue deploy altitude(m), main deploy time(ms), main deploy altitude(m), landing time(ms), landing altitude(m), battery voltage (V)\n";
 	res = f_write(&SDFile, sys_header, sizeof(sys_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -217,18 +217,7 @@ FRESULT SD_write_headers() {
 		Non_Blocking_Error_Handler();
 	}
 
-	typedef struct  {
-		float angle_from_vertical;
-		float filtered_launch_detect_accel;
-		float filtered_burnout_detect_x_axis_accel;
-		float filtered_apogee_detect_altitude;
-		float filtered_apogee_detect_vertical_velocity;
-		float filtered_apogee_detect_accel;
-		float unfiltered_main_detect_agl_altitude;
-		float filtered_landing_detect_vertical_velocity;
-	} State_Machine_Internal_State_t;
-
-	char internal_sm_header[] = "Timestamp (ms), Angle from vertical (rad), Filtered launch detection acceleration (g), Filtered burnout detection x acceleration (g), Filtered apogee detection altitude (m), Filtered apogee detection vertical velocity (m/s), Filtered apogee detection acceleration (g), Unfiltered main detection agl altitude (m), Filtered landing detection vertical velocity (m)\n";
+	char internal_sm_header[] = "Timestamp (uS), Angle from vertical (rad), Filtered launch detection acceleration (g), Filtered burnout detection x acceleration (g), Filtered apogee detection altitude (m), Filtered apogee detection vertical velocity (m/s), Filtered apogee detection acceleration (g), Unfiltered main detection agl altitude (m), Filtered landing detection vertical velocity (m)\n";
 	res = f_write(&SDFile, internal_sm_header, sizeof(internal_sm_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
