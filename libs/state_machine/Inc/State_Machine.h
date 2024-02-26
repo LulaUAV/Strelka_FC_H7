@@ -34,23 +34,21 @@ typedef enum armState {
 
 // Launch detection constants
 #define LAUNCH_ACCEL_FILTER_FREQ			100.0f			// Hz
-#define LAUNCH_ACCEL_FILTER_WIDTH			10				// Filter width elements
+#define LAUNCH_ACCEL_FILTER_WIDTH			20				// Filter width elements
 #define LAUNCH_ACCEL_THRESHOLD 				2.0f			// g
 #define PITCH_OVER_ANGLE_THRESHOLD			30.0f			// degrees
 
 // Burnout detection constants
 #define BURNOUT_ACCEL_FILTER_FREQ			100.0f			// Hz
 #define MAX_MOTOR_BURN_TIME					10.0f			// Seconds
-#define BURNOUT_ACCEL_THRESHOLD				-0.5f			// g
+#define BURNOUT_ACCEL_THRESHOLD				0.0f			// g
 
 // Apogee detection constants
-#define VERTICAL_VELOCITY_DETECT_FREQ		20				// Hz
-#define VERTICAL_VELOCITY_FILTER_FREQ   	10				// Hz
+#define VERTICAL_VELOCITY_DETECT_FREQ		40				// Hz - Frequency that apogee detect algorithm runs at. Also defines the update freq of the altitude and acceleration lp filters
+#define VERTICAL_VELOCITY_FILTER_FREQ   	10				// Hz - Frequency that the vertical velocity median filter is updated
 #define APOGEE_DETECT_VELOCITY_THRESHOLD	1.0f			// m/s
-#define ALTITUDE_LP_FILTER_CUTOFF_FREQ		10.0f			// Hz
-#define ALTITUDE_LP_FILTER_UPDATE_FREQ		100				// Hz
-#define ACCEL_LP_FILTER_UPDATE_FREQ			100				// Hz
-#define ACCEL_LP_FILTER_CUTOFF_FREQ			10.0f			// Hz
+#define ALTITUDE_LP_FILTER_CUTOFF_FREQ		1.0f			// Hz
+#define ACCEL_LP_FILTER_CUTOFF_FREQ			1.0f			// Hz
 #define APOGEE_DETECT_ACCEL_THRESHOLD		2.0				// g
 
 // Main deploy altitude detection constants
@@ -58,6 +56,7 @@ typedef enum armState {
 
 // Landing detection constants
 #define LANDING_SPEED_THRESHOLD				1.0f			// m/s (magnitude)
+#define LANDING_VELOCITY_LP_CUTOFF_FREQ		0.1f			// Hz - Cut-off frequency of vertical velocity low pass filter used for detecting landing
 #define FLIGHT_TIME_TIMOUT					3600			// seconds
 
 #ifndef DEG_TO_RAD

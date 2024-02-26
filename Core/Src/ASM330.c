@@ -61,6 +61,16 @@ uint8_t ASM330_Init(ASM330_handle *asm330) {
 	asm330lhhx_xl_full_scale_set(&asm330->dev_ctx, asm330->accel_scale);
 	asm330lhhx_gy_full_scale_set(&asm330->dev_ctx, asm330->gyro_scale);
 
+	/* Enable accelerometer internal low pass filter */
+	asm330lhhx_xl_filter_lp2_set(&asm330->dev_ctx, 1);
+	// Set filter bandwidth to 66.67Hz at 6.67kHz sample rate
+	asm330lhhx_xl_hp_path_on_out_set(&asm330->dev_ctx, ASM330LHHX_LP_ODR_DIV_100);
+
+	/* Enable gyroscope internal low pass filter */
+	asm330lhhx_gy_filter_lp1_set(&asm330->dev_ctx, 1);
+	// Set bandwidth to 154Hz at 6.67kHz sample rate
+	asm330lhhx_gy_lp1_bandwidth_set(&asm330->dev_ctx, 0b010);
+
 	/* Set INT1 to accelerometer data ready */
 	asm330lhhx_pin_int1_route_get(&asm330->dev_ctx, &int1_route);
 	int1_route.int1_ctrl.int1_drdy_xl = PROPERTY_ENABLE;
