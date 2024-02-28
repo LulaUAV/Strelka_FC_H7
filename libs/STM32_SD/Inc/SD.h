@@ -14,7 +14,8 @@
 #include <stdbool.h>
 
 /* DEFINITIONS */
-typedef struct {
+typedef struct
+{
 	float log_frequency;
 	bool flash_good;
 	bool flash_logging_enabled;
@@ -34,13 +35,14 @@ FRESULT SD_write_system_state_data(uint32_t time_uS, uint8_t flight_state, uint8
 FRESULT SD_write_ekf_data(uint32_t time_uS, float qu1, float qu2, float qu3, float qu4);
 FRESULT SD_write_headers();
 FRESULT SD_write_binary_stream(uint8_t *buffer, size_t len);
-FRESULT SD_get_free_space_kB(float* kBytes_free);;
+FRESULT SD_get_free_space_kB(float *kBytes_free);
+;
 FRESULT SD_erase_disk();
-void SD_write_accel_batch(uint8_t* accel_buffer, size_t accel_sz);
-void SD_write_gyro_batch(uint8_t* gyro_buffer, size_t gyro_sz);
-void SD_write_mag_batch(uint8_t* mag_buffer, size_t mag_sz);
-void SD_write_baro_batch(uint8_t* baro_buffer, size_t baro_sz);
-void SD_write_gps_batch(uint8_t* gps_buffer, size_t gps_sz);
-void SD_write_sys_state_batch(uint8_t* sys_state_buffer, size_t sys_state_sz);
+void SD_write_accel_batch(uint8_t *accel_buffer, size_t accel_sz);
+void SD_write_gyro_batch(uint8_t *gyro_buffer, size_t gyro_sz);
+void SD_write_mag_batch(uint8_t *mag_buffer, size_t mag_sz);
+void SD_write_baro_batch(uint8_t *baro_buffer, size_t baro_sz);
+void SD_write_gps_batch(uint8_t *gps_buffer, size_t gps_sz);
+void SD_write_sys_state_batch(uint8_t *sys_state_buffer, size_t sys_state_sz);
 void SD_write_ekf_batch(uint8_t *ekf_buffer, size_t ekf_sz);
 #endif /* INC_SD_H_ */
