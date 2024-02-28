@@ -72,6 +72,7 @@
 #define SYSTEM_STATE_PACKET_TYPE_5_RES		0x3A
 #define SYSTEM_STATE_PACKET_TYPE_6_RES		0x3B
 #define SYSTEM_STATE_PACKET_TYPE_7_RES		0x3C
+#define SYSTEM_REBOOT_REQ			0x3C
 
 
 /* Payload lengths */
@@ -127,7 +128,7 @@
 #define ARM_MAIN_RES_LEN 		0x01
 #define ARM_DROGUE_RES_LEN 		0x01
 #define SYSTEM_STATE_PACKET_REQ_LEN 0x01
-#define SYSTEM_STATE_PACKET_TYPE_0_RES_LEN 0x80
+#define SYSTEM_STATE_PACKET_TYPE_0_RES_LEN 0x82
 #define SYSTEM_STATE_PACKET_TYPE_1_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_2_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_3_RES_LEN 0x00
@@ -135,6 +136,7 @@
 #define SYSTEM_STATE_PACKET_TYPE_5_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_6_RES_LEN 0x00
 #define SYSTEM_STATE_PACKET_TYPE_7_RES_LEN 0x00
+#define SYSTEM_REBOOT_REQ_LEN		   0x00
 
 typedef struct __attribute__((__packed__))
 {
@@ -303,6 +305,7 @@ typedef struct __attribute__((__packed__))
 	uint8_t flight_state;
 	float ambient_temperature;
 	float available_flash_memory;
+	uint8_t gps1_good;
 } stream_packet_type_0;
 
 typedef struct __attribute__((__packed__)) 
@@ -428,7 +431,7 @@ typedef struct __attribute__((__packed__))
 	uint8_t heart_beat_enabled;
 	float heart_beat_chirp_frequency;
 	uint8_t flash_logging_enabled;
-	uint8_t flight_state
+	uint8_t flight_state;
 } system_state_packet_type_0_res;
 
 typedef struct __attribute__((__packed__)) 
@@ -458,5 +461,6 @@ typedef struct __attribute__((__packed__))
 typedef struct __attribute__((__packed__)) 
 {
 } stream_state_packet_type_7_res;
+
 
 #endif /* INC_PACKETS_H_ */
