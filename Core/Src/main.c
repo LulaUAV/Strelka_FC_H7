@@ -1655,7 +1655,7 @@ void State_Machine(void *argument) {
 	 *
 	 * Apogee detection:
 	 * The vehicle will detect apogee when the following element is satisfied:
-	 * 1. The vehicle is traveling at a velocity lower than APOGEE_DETECT_VELOCITY_THRESHOLD. This includes negative values.
+	 * 1. The vehicle is travelling at a velocity lower than APOGEE_DETECT_VELOCITY_THRESHOLD. This includes negative values.
 	 * 2. The magnitude of filtered acceleration read is below 2g.
 	 */
 	bool apogee_detected = false;
