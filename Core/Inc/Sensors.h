@@ -42,6 +42,19 @@ typedef struct {
 	bool gyro_updated;
 }ASM330_Data_Handle;
 
+/* A hardware specific data type containing state information about on board sensors */
+typedef struct {
+	bool *asm330_acc_good;
+	bool *asm330_gyro_good;
+	bool *bmx055_acc_good;
+	bool *bmx055_gyro_good;
+	bool *bmx055_mag_good;
+	bool *ms5611_good;
+	bool *gps_good;
+	bool *flash_good;
+	bool *lora_good;
+} Sensor_State;
+
 #define GPS_Buff_Size 1024
 typedef struct {
 	uint8_t gps_buffer[GPS_Buff_Size];

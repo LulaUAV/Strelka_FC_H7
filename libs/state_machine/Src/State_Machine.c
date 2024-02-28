@@ -7,8 +7,6 @@
 
 #include "State_Machine.h"
 
-extern System_State_FC_t state_machine_fc;
-
 /*
  * Function that calculates the angular difference between the vehicle vector and the desired vector
  * Inputs:

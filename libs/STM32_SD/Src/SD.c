@@ -217,7 +217,7 @@ FRESULT SD_write_headers() {
 		Non_Blocking_Error_Handler();
 	}
 
-	char internal_sm_header[] = "Timestamp (uS), Angle from vertical (rad), Filtered launch detection acceleration (g), Filtered burnout detection x acceleration (g), Filtered apogee detection altitude (m), Filtered apogee detection vertical velocity (m/s), Filtered apogee detection acceleration (g), Unfiltered main detection agl altitude (m), Filtered landing detection vertical velocity (m)\n";
+	char internal_sm_header[] = "Timestamp (uS), Angle from vertical (rad), Filtered launch detection acceleration (g), Filtered burnout detection x acceleration (g), Filtered apogee detection altitude (m), Filtered apogee detection vertical velocity (m/s), Filtered apogee detection acceleration (g), Unfiltered main detection agl altitude (m), Filtered landing detection vertical velocity (m), Up axis index\n";
 	res = f_write(&SDFile, internal_sm_header, sizeof(internal_sm_header), (void*) &byteswritten);
 
 	if ((byteswritten == 0) || (res != FR_OK)) {
