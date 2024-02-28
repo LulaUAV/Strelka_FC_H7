@@ -9,8 +9,6 @@
 #define EKF_H
 
 
-#include "usbd_cdc_if.h"
-
 #include <math.h>
 #include <stdbool.h>
 #include "string.h"
