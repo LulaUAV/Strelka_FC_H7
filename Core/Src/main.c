@@ -1605,7 +1605,6 @@ void State_Machine(void *argument) {
 	while (1) {
 		float angle_from_vertical;
 		uint8_t result = calculate_attitude_error(&ekf.qu, &up_vec, &angle_from_vertical, &normal_vector);
-		angle_from_vertical = 0;
 		if (!result) {
 			// TODO: Determine why ASM330 fails occasionally
 			if (asm330.acc_good) {
