@@ -71,7 +71,7 @@ bool detect_apogee(float *current_vertical_velocity, float *previous_vertical_ve
 	// Add reading to array of previous velocities
 	vertical_velocity_history[0] = *current_vertical_velocity;
 	float vel_hist_cpy[sizeof(vertical_velocity_history)];
-	memcpy(vel_hist_cpy, vertical_velocity_history, sizeof(vertical_velocity_history)*sizeof(float));
+	memcpy(vel_hist_cpy, vertical_velocity_history, sizeof(vertical_velocity_history) * sizeof(float));
 	// Calculate median of vertical_velocity_history array
 	float filtered_descent_rate = calculateMedian(vel_hist_cpy, APOGEE_MEDIAN_FILTER_LENGTH);
 
@@ -96,7 +96,7 @@ void fill_median_filter_buffer(float data_point, size_t idx) {
  * true -> apogee
  */
 bool detect_apogee_delay(uint32_t launch_time_us, uint32_t current_time_us) {
-	return ((float)(current_time_us - launch_time_us))/1E6 > TIME_TO_APOGEE;
+	return ((float) (current_time_us - launch_time_us)) / 1E6 > TIME_TO_APOGEE;
 }
 
 /*
@@ -155,30 +155,41 @@ void deploy_main_parachute(GPIO_TypeDef *H_port, GPIO_TypeDef *L_port, uint16_t 
 	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_RESET);
 }
 
-ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint16_t L_pin) {
+ematchState test_continuity(ADC_HandleTypeDef *hadc, GPIO_TypeDef *L_port, uint16_t L_pin, uint32_t adcChannel) {
 	ematchState state;
-	uint32_t EventType;
 	HAL_StatusTypeDef res;
 
 	// Set FIRE_L pin to allow for continuity sensing
 	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_SET);
 
-	// Start ADC
-	HAL_ADC_Start(hadc);
-	while(EventType != ADC_EOSMP_EVENT || res != HAL_TIMEOUT) {
-		res = HAL_ADC_PollForEvent(hadc, EventType, 1000);
-		osDelay(10);
+	ADC_ChannelConfTypeDef sConfig = { 0 };
+	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	 */
+	if (adcChannel == ADC_CHANNEL_8) {
+		sConfig.Rank = ADC_REGULAR_RANK_2;
+	} else {
+		sConfig.Rank = ADC_REGULAR_RANK_1;
 	}
-	if(res == HAL_TIMEOUT)
+	sConfig.Channel = adcChannel;
+	sConfig.SamplingTime = ADC_SAMPLETIME_64CYCLES_5;
+	sConfig.SingleDiff = ADC_SINGLE_ENDED;
+	sConfig.OffsetNumber = ADC_OFFSET_NONE;
+	sConfig.Offset = 0;
+	sConfig.OffsetSignedSaturation = DISABLE;
+	if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK) {
+		Error_Handler();
+	}
+
+	// Start ADC
+	res = HAL_ADC_Start(hadc);
+	res = HAL_ADC_PollForConversion(hadc, 1);
+	if (res == HAL_TIMEOUT)
 		return EMATCH_ERROR;
 
 	uint32_t AD_RES = HAL_ADC_GetValue(hadc);
-	if(AD_RES > 52428) {
-		// Greater than 80% HIGH state means open circuit
+	if (AD_RES > 40000) {
 		state = OPEN_CIRCUIT;
-	}
-	else if(AD_RES < 13107) {
-		// Less than 20% of HIGH state means good
+	} else {
 		state = GOOD;
 	}
 
@@ -187,4 +198,77 @@ ematchState test_continuity(ADC_HandleTypeDef* hadc, GPIO_TypeDef *L_port, uint1
 	HAL_GPIO_WritePin(L_port, L_pin, GPIO_PIN_RESET);
 
 	return state;
+}
+
+#define ADC_RESOLUTION   16
+#define ADC_MAX_VALUE    ((1 << ADC_RESOLUTION) - 1)
+#define V_REF            3.3  // Replace with your ADC reference voltage
+
+// Battery voltage regression values
+#define NUM_POINTS 11
+#define NUM_COLS 2
+float battery_adc_voltage[NUM_POINTS][NUM_COLS] = {
+	{46042, 4.2},
+	{45572, 4.0},
+	{44922, 3.8},
+	{44231, 3.6},
+	{43428, 3.4},
+	{42580, 3.22},
+	{41691, 3.0},
+	{40633, 2.8},
+	{39312, 2.6},
+	{38028, 2.4}
+};
+
+float interpolateBatteryVoltage(float adc_value, float battery_adc_voltage[NUM_POINTS][NUM_COLS]) {
+	int idx=0;
+    // Find the two closest points for linear interpolation
+    for(idx=0; idx<NUM_POINTS-1; idx++) {
+    	if(battery_adc_voltage[idx][0] >= adc_value && battery_adc_voltage[idx+1][0]<= adc_value) {
+    		break;
+    	}
+    }
+
+    // Perform linear interpolation
+    float lower_adc = battery_adc_voltage[idx+1][0];
+    float upper_adc = battery_adc_voltage[idx][0];
+    float lower_voltage = battery_adc_voltage[idx+1][1];
+    float upper_voltage = battery_adc_voltage[idx][1];
+
+    float interpolated_voltage = lower_voltage +
+        ((upper_voltage - lower_voltage) / (upper_adc - lower_adc)) * (adc_value - lower_adc);
+
+    return interpolated_voltage;
+}
+
+float convertToVoltage(uint16_t adcValue) {
+	return (adcValue / (float) ADC_MAX_VALUE) * V_REF;
+}
+
+float calculateBatteryVoltage(ADC_HandleTypeDef *hadc) {
+	HAL_StatusTypeDef res;
+
+	ADC_ChannelConfTypeDef sConfig = { 0 };
+	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+	 */
+	sConfig.Channel = ADC_CHANNEL_4;
+	sConfig.Rank = ADC_REGULAR_RANK_3;
+	sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+	if (HAL_ADC_ConfigChannel(hadc, &sConfig) != HAL_OK) {
+		Error_Handler();
+	}
+
+	// Start ADC
+	res = HAL_ADC_Start(hadc);
+	res = HAL_ADC_PollForConversion(hadc, 1);
+	if (res == HAL_TIMEOUT)
+		return EMATCH_ERROR;
+
+	uint16_t AD_RES = HAL_ADC_GetValue(hadc);
+
+	// Stop ADC
+	HAL_ADC_Stop(hadc);
+
+	// Convert 16 bit value to voltage and scale by voltage divider ratio
+	return interpolateBatteryVoltage(AD_RES, battery_adc_voltage);
 }
