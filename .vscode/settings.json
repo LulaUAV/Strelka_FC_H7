@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "usbd_storage_if.h": "c"
+        "usbd_storage_if.h": "c",
+        "state_controller.h": "c"
     }
 }
