@@ -55,6 +55,12 @@ typedef struct {
 	bool *lora_good;
 } Sensor_State;
 
+// Buffers to store last sensor data read
+uint8_t sensor_data_stream_buffer[512];
+uint8_t sensor_data_stream_ptr;
+
+
+
 #define GPS_Buff_Size 1024
 typedef struct {
 	uint8_t gps_buffer[GPS_Buff_Size];

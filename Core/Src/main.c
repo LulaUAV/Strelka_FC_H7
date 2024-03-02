@@ -1776,6 +1776,8 @@ void Sample_Sensors(void *argument) {
 	}
 	sensors_initialised = true;
 
+	sensor_data_stream_ptr = 0;
+
 	// Sensor type that is ready when task is released
 	uint32_t sensor_type;
 	/* Infinite loop */
@@ -1793,6 +1795,17 @@ void Sample_Sensors(void *argument) {
 			BMX055_exp_filter(bmx055_data.accel, accel_data, bmx055_data.accel, sizeof(accel_data) / sizeof(int),
 			ACCEL_ALPHA);
 			bmx055_data.accel_updated = true;
+
+			// Write sensor data to stream buffer
+			// Check that buffer length has not exceeded max flash sector size + number of bytes to be written + sensor write header and crc bytes
+			if (sensor_data_stream_ptr <= _MAX_SS - 16 - 8) {
+				uint32_t timestamp = micros();
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &timestamp, sizeof(timestamp));
+				sensor_data_stream_ptr += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &bmx055_data.accel, 3 * sizeof(float));
+				sensor_data_stream_ptr += 3 * sizeof(float);
+			}
+
 		}
 		// Check BMX055_Gyro
 		if (sensor_type & BMX055_Gyro) {
@@ -1803,6 +1816,16 @@ void Sample_Sensors(void *argument) {
 			BMX055_exp_filter(bmx055_data.gyro, gyro_data, bmx055_data.gyro, sizeof(gyro_data) / sizeof(int),
 			GYRO_ALPHA);
 			bmx055_data.gyro_updated = true;
+
+			// Write sensor data to stream buffer
+			// TODO:
+//			if (sensor_data_stream_ptr <= _MAX_SS - 16 - 8) {
+//				uint32_t timestamp = micros();
+//				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &timestamp, sizeof(timestamp));
+//				sensor_data_stream_ptr += sizeof(timestamp);
+//				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &bmx055_data.accel, 3 * sizeof(float));
+//				sensor_data_stream_ptr += 3 * sizeof(float);
+//			}
 		}
 		// Check BMX055_Mag
 		if (sensor_type & BMX055_Mag) {
