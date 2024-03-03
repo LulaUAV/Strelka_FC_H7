@@ -56,8 +56,9 @@ typedef struct {
 } Sensor_State;
 
 // Buffers to store last sensor data read
+#define STREAM_METADATA_SIZE	8		// Number of bytes contained in metadata (header = 4 bytes + crc32 = 4 bytes)
 uint8_t sensor_data_stream_buffer[512];
-uint8_t sensor_data_stream_ptr;
+uint8_t sensor_data_stream_offset;
 
 
 

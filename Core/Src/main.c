@@ -44,6 +44,11 @@
 typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN PTD */
 
+// Uncomment to allow for binary data stream logging
+#define BINARY_LOGGING
+// Uncomment to allow for csv logging (less efficient)
+//#define CSV_LOGGING
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -1776,7 +1781,8 @@ void Sample_Sensors(void *argument) {
 	}
 	sensors_initialised = true;
 
-	sensor_data_stream_ptr = 0;
+	sensor_data_stream_offset = 0;
+	memset(sensor_data_stream_buffer, 0x00, sizeof(sensor_data_stream_buffer));		// Reset buffer to all zeros
 
 	// Sensor type that is ready when task is released
 	uint32_t sensor_type;
@@ -1797,14 +1803,18 @@ void Sample_Sensors(void *argument) {
 			bmx055_data.accel_updated = true;
 
 			// Write sensor data to stream buffer
-			// Check that buffer length has not exceeded max flash sector size + number of bytes to be written + sensor write header and crc bytes
-			if (sensor_data_stream_ptr <= _MAX_SS - 16 - 8) {
+			// Check that buffer length has not exceeded max flash
+			// sector size + number of bytes to be written + sensor
+			// write header and crc bytes
+#ifdef BINARY_LOGGING
+			if (sensor_data_stream_offset <= _MAX_SS - 16 - STREAM_METADATA_SIZE) {
 				uint32_t timestamp = micros();
-				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &timestamp, sizeof(timestamp));
-				sensor_data_stream_ptr += sizeof(timestamp);
-				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &bmx055_data.accel, 3 * sizeof(float));
-				sensor_data_stream_ptr += 3 * sizeof(float);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &timestamp, sizeof(timestamp));
+				sensor_data_stream_offset += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &bmx055_data.accel, 3 * sizeof(float));
+				sensor_data_stream_offset += 3 * sizeof(float);
 			}
+#endif
 
 		}
 		// Check BMX055_Gyro
@@ -1818,14 +1828,15 @@ void Sample_Sensors(void *argument) {
 			bmx055_data.gyro_updated = true;
 
 			// Write sensor data to stream buffer
-			// TODO:
-//			if (sensor_data_stream_ptr <= _MAX_SS - 16 - 8) {
-//				uint32_t timestamp = micros();
-//				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &timestamp, sizeof(timestamp));
-//				sensor_data_stream_ptr += sizeof(timestamp);
-//				memcpy(&sensor_data_stream_buffer[sensor_data_stream_ptr], &bmx055_data.accel, 3 * sizeof(float));
-//				sensor_data_stream_ptr += 3 * sizeof(float);
-//			}
+#ifdef BINARY_LOGGING
+			if (sensor_data_stream_offset <= _MAX_SS - 16 - STREAM_METADATA_SIZE) {
+				uint32_t timestamp = micros();
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &timestamp, sizeof(timestamp));
+				sensor_data_stream_offset += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &bmx055_data.gyro, 3 * sizeof(float));
+				sensor_data_stream_offset += 3 * sizeof(float);
+			}
+#endif
 		}
 		// Check BMX055_Mag
 		if (sensor_type & BMX055_Mag) {
@@ -1833,6 +1844,17 @@ void Sample_Sensors(void *argument) {
 			ulTaskNotifyValueClear(Sample_Sensors_Handle, BMX055_Mag);
 			BMX055_readCompensatedMag(&bmx055, bmx055_data.mag);
 			bmx055_data.mag_updated = true;
+
+			// Write sensor data to stream buffer
+#ifdef BINARY_LOGGING
+			if (sensor_data_stream_offset <= _MAX_SS - 16 - STREAM_METADATA_SIZE) {
+				uint32_t timestamp = micros();
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &timestamp, sizeof(timestamp));
+				sensor_data_stream_offset += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &bmx055_data.mag, 3 * sizeof(float));
+				sensor_data_stream_offset += 3 * sizeof(float);
+			}
+#endif
 		}
 		// Check asm330_Accel
 		if (sensor_type & ASM330_Accel) {
@@ -1842,6 +1864,17 @@ void Sample_Sensors(void *argument) {
 				// TODO: Handle error
 			}
 			asm330_data.accel_updated = true;
+
+			// Write sensor data to stream buffer
+#ifdef BINARY_LOGGING
+			if (sensor_data_stream_offset <= _MAX_SS - 16 - STREAM_METADATA_SIZE) {
+				uint32_t timestamp = micros();
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &timestamp, sizeof(timestamp));
+				sensor_data_stream_offset += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &asm330_data.accel, 3 * sizeof(float));
+				sensor_data_stream_offset += 3 * sizeof(float);
+			}
+#endif
 		}
 		// Check asm330_Gyro
 		if (sensor_type & ASM330_Gyro) {
@@ -1851,6 +1884,17 @@ void Sample_Sensors(void *argument) {
 				// TODO: Handle error
 			}
 			asm330_data.gyro_updated = true;
+
+			// Write sensor data to stream buffer
+#ifdef BINARY_LOGGING
+			if (sensor_data_stream_offset <= _MAX_SS - 16 - STREAM_METADATA_SIZE) {
+				uint32_t timestamp = micros();
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &timestamp, sizeof(timestamp));
+				sensor_data_stream_offset += sizeof(timestamp);
+				memcpy(&sensor_data_stream_buffer[sensor_data_stream_offset], &asm330_data.gyro, 3 * sizeof(float));
+				sensor_data_stream_offset += 3 * sizeof(float);
+			}
+#endif
 		}
 		// Check MAX_10S_GPS
 		if (sensor_type & MAX_10S_GPS) {
@@ -1956,7 +2000,7 @@ void Data_Logging(void *argument) {
 	xLastWakeTime = xTaskGetTickCount();
 
 	// Variables to store size of each write within each group
-	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0, ekf_write_sz = 0, internal_sm_write_sz = 0;
+	size_t accel_write_sz = 0, gyro_write_sz = 0, mag_write_sz = 0, baro_write_sz = 0, gps_write_sz = 0, sys_state_write_sz = 0, ekf_write_sz = 0, internal_sm_write_sz = 0, binary_sensor_write_sz = 0;
 
 	// Buffers to store grouped write data
 	uint8_t accel_buffer[_MAX_SS], gyro_buffer[_MAX_SS], mag_buffer[_MAX_SS], baro_buffer[_MAX_SS], gps_buffer[_MAX_SS], sys_state_buffer[_MAX_SS], ekf_buffer[_MAX_SS], internal_sm_buffer[_MAX_SS];
@@ -1977,6 +2021,7 @@ void Data_Logging(void *argument) {
 
 			// Append data to buffer arrays
 			if (prefill_counter < max_batch_size) {
+#ifdef CSV_LOGGING
 				if (accel_sz <= sizeof(accel_buffer) - accel_write_sz) {
 					accel_write_sz = snprintf((char*) &accel_buffer[accel_sz], sizeof(accel_buffer) - accel_sz, "%.0lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", micros(), asm330_data.accel[0], asm330_data.accel[1], asm330_data.accel[2], bmx055_data.accel[0], bmx055_data.accel[1], bmx055_data.accel[2]);
 					// Store previous write size
@@ -2031,10 +2076,17 @@ void Data_Logging(void *argument) {
 					} else
 						prefill_counter = max_batch_size;
 				}
+#endif
+#ifdef BINARY_LOGGING
+				if(sensor_data_stream_offset >= __MAX_SS - 16) {
+					// Stream buffer is full
+					prefill_counter = max_batch_size;
+				}
+#endif
 				prefill_counter++;
 			} else {
 				// Write batches of data
-
+#ifdef CSV_LOGGING
 				// Write accel data
 				SD_write_accel_batch(accel_buffer, accel_sz);
 
@@ -2058,6 +2110,19 @@ void Data_Logging(void *argument) {
 
 				// Write internal state machine data
 				SD_write_internal_state_machine_batch(internal_sm_buffer, internal_sm_sz);
+#endif
+#ifdef BINARY_LOGGING
+				// Write sensor data stream
+				uint8_t write_pkt[__MAX_SS];
+				// Add header
+				uint8_t header[] = { 0xAA, 0xAA, 0xAA, 0xAA };
+				memcpy(write_pkt, header, 4);
+				// Calculate crc32
+				uint32_t crc32 = Calculate_CRC32(&hcrc, send_pkt, len + 15);
+				SD_write_sensor_data_binary_stream(sensor_data_stream_buffer. sizeof(sensor_data_stream_buffer));
+				memset(sensor_data_stream_buffer, 0x00, sizeof(sensor_data_stream_buffer));
+				sensor_data_stream_offset = 0;
+#endif
 
 				prefill_counter = 0;
 				accel_sz = 0;
