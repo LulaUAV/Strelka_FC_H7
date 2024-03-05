@@ -35,7 +35,6 @@
 #include "Packets_Definitions.h"
 #include "SD.h"
 #include "EKF.h"
-#include "CO_app_STM32.h"
 #include "digital_filter.h"
 #include "State_Controller.h"
 /* USER CODE END Includes */
@@ -2161,20 +2160,12 @@ void Extended_Kalman_Filter(void *argument) {
 /* USER CODE END Header_CANopen */
 void CANopen(void *argument) {
 	/* USER CODE BEGIN CANopen */
-	/* CANopen configurations */
-	CANopenNodeSTM32 canOpenNodeSTM32;
-	canOpenNodeSTM32.CANHandle = &hfdcan1;
-	canOpenNodeSTM32.HWInitFunction = MX_FDCAN1_Init;
-	canOpenNodeSTM32.timerHandle = &htim17;
-	canOpenNodeSTM32.desiredNodeID = 24;
-	canOpenNodeSTM32.baudrate = 125;
-	canopen_app_init(&canOpenNodeSTM32);
+
 
 	/* Infinite loop */
 	for (;;) {
 
-		// Run this once every millisecond
-		canopen_app_process();
+
 		osDelay(pdMS_TO_TICKS(1));
 	}
 	/* USER CODE END CANopen */
@@ -2252,11 +2243,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	else if (htim->Instance == TIM2) {
 		gps.gps_good = false;
 		TIM2->CNT = 0;
-	}
-
-	else if (htim == canopenNodeSTM32->timerHandle) {
-		// Handle CANOpen app interrupts
-		canopen_app_interrupt();
 	}
 	/* USER CODE END Callback 1 */
 }
